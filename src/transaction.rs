@@ -4,8 +4,10 @@ mod store;
 pub use self::{index::StoreIndex, store::Store};
 
 #[cfg(feature = "js")]
-use wasm_bindgen::{prelude::*, throw_str};
-use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::{throw_str, JsCast, JsValue, UnwrapThrowExt};
+#[cfg(feature = "js")]
+use web_sys::DomStringList;
 use web_sys::IdbTransaction;
 
 use crate::{
@@ -48,6 +50,19 @@ impl From<TransactionMode> for web_sys::IdbTransactionMode {
     }
 }
 
+impl From<web_sys::IdbTransactionMode> for TransactionMode {
+    fn from(mode: web_sys::IdbTransactionMode) -> Self {
+        match mode {
+            web_sys::IdbTransactionMode::Readonly => Self::ReadOnly,
+            web_sys::IdbTransactionMode::Readwrite => Self::ReadWrite,
+            web_sys::IdbTransactionMode::Readwriteflush => Self::ReadWriteFlush,
+            web_sys::IdbTransactionMode::Cleanup => Self::Cleanup,
+            web_sys::IdbTransactionMode::Versionchange => Self::VersionChange,
+            _ => throw_str("invalid transaction mode"),
+        }
+    }
+}
+
 #[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct Transaction {
     pub(crate) idb_transaction: IdbTransaction,
@@ -55,6 +70,32 @@ pub struct Transaction {
 
 #[cfg_attr(feature = "js", wasm_bindgen)]
 impl Transaction {
+    #[cfg_attr(feature = "js", wasm_bindgen(getter))]
+    pub fn mode(&self) -> TransactionMode {
+        self.idb_transaction.mode().unwrap_throw().into()
+    }
+
+    #[cfg(feature = "js")]
+    #[wasm_bindgen(getter, js_name = "storeNames")]
+    pub fn store_names(&self) -> DomStringList {
+        self.idb_transaction.object_store_names()
+    }
+
+    #[cfg(not(feature = "js"))]
+    pub fn store_names(&self) -> Vec<String> {
+        let list = self.idb_transaction.object_store_names();
+
+        let mut result = Vec::new();
+
+        for index in 0..list.length() {
+            if let Some(s) = list.get(index) {
+                result.push(s);
+            }
+        }
+
+        result
+    }
+
     pub async fn abort(self) -> Result<()> {
         let abort_observer = Observer::new(());
         self.idb_transaction

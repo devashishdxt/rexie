@@ -1,6 +1,8 @@
 use js_sys::Array;
 #[cfg(feature = "js")]
 use wasm_bindgen::prelude::*;
+#[cfg(feature = "js")]
+use web_sys::DomStringList;
 use web_sys::IdbDatabase;
 
 use crate::{ErrorType, Result, RexieBuilder, Transaction, TransactionMode};
@@ -25,6 +27,32 @@ impl Rexie {
     #[cfg_attr(feature = "js", wasm_bindgen(getter))]
     pub fn name(&self) -> String {
         self.db.name()
+    }
+
+    #[cfg_attr(feature = "js", wasm_bindgen(getter))]
+    pub fn version(&self) -> f64 {
+        self.db.version()
+    }
+
+    #[cfg(feature = "js")]
+    #[wasm_bindgen(getter, js_name = "storeNames")]
+    pub fn store_names(&self) -> DomStringList {
+        self.db.object_store_names()
+    }
+
+    #[cfg(not(feature = "js"))]
+    pub fn store_names(&self) -> Vec<String> {
+        let list = self.db.object_store_names();
+
+        let mut result = Vec::new();
+
+        for index in 0..list.length() {
+            if let Some(s) = list.get(index) {
+                result.push(s);
+            }
+        }
+
+        result
     }
 
     pub fn transaction(

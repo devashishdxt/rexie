@@ -8,6 +8,8 @@ use js_sys::Promise;
 #[cfg(feature = "js")]
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+#[cfg(feature = "js")]
+use web_sys::DomStringList;
 use web_sys::IdbObjectStore;
 
 use crate::{utils::wait_request, ErrorType, KeyRange, Result, StoreIndex};
@@ -33,6 +35,16 @@ impl Store {
 
 #[cfg_attr(feature = "js", wasm_bindgen)]
 impl Store {
+    #[cfg_attr(feature = "js", wasm_bindgen(getter, js_name = "autoIncrement"))]
+    pub fn auto_increment(&self) -> bool {
+        self.idb_store.auto_increment()
+    }
+
+    #[cfg_attr(feature = "js", wasm_bindgen(getter))]
+    pub fn name(&self) -> String {
+        self.idb_store.name()
+    }
+
     pub fn index(&self, name: &str) -> Result<StoreIndex> {
         let idb_index = self
             .idb_store
@@ -45,6 +57,27 @@ impl Store {
 
 #[cfg(not(feature = "js"))]
 impl Store {
+    pub fn key_path(&self) -> Result<Option<String>> {
+        self.idb_store
+            .key_path()
+            .map(|js_value| js_value.as_string())
+            .map_err(|js_value| ErrorType::IndexedDBError.into_error().set_inner(js_value))
+    }
+
+    pub fn index_names(&self) -> Vec<String> {
+        let list = self.idb_store.index_names();
+
+        let mut result = Vec::new();
+
+        for index in 0..list.length() {
+            if let Some(s) = list.get(index) {
+                result.push(s);
+            }
+        }
+
+        result
+    }
+
     pub async fn get(&self, key: impl Into<JsValue>) -> Result<JsValue> {
         self.get_js(&key.into()).await
     }
@@ -115,6 +148,21 @@ impl Store {
 #[cfg(feature = "js")]
 #[wasm_bindgen]
 impl Store {
+    #[wasm_bindgen(getter, js_name = "keyPath")]
+    pub fn key_path(&self) -> Result<JsValue> {
+        self.idb_store.key_path().map_err(|js_value| {
+            ErrorType::IndexedDBError
+                .into_error()
+                .set_inner(js_value)
+                .into()
+        })
+    }
+
+    #[wasm_bindgen(getter, js_name = "indexNames")]
+    pub fn index_names(&self) -> DomStringList {
+        self.idb_store.index_names()
+    }
+
     pub fn get(&self, key: JsValue) -> Promise {
         let this = self.clone();
         wasm_bindgen_futures::future_to_promise(async move { this.get_js(&key).await })
