@@ -1,0 +1,49 @@
+[package]
+name = "rexie"
+version = "0.1.0"
+authors = ["Devashish Dixit <devashishdxt@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+js-test = []
+js = []
+
+[dependencies]
+console_error_panic_hook = { version = "0.1.6", optional = true }
+js-sys = "0.3.55"
+thiserror = "1.0.30"
+tokio = { version = "1.14.0", features = ["macros", "sync"] }
+wasm-bindgen = "0.2.63"
+wasm-bindgen-futures = "0.4.28"
+web-sys = { version = "0.3.55", features = [
+    "console",
+    "DomException",
+    "DomStringList",
+    "IdbDatabase",
+    "IdbFactory",
+    "IdbIndex",
+    "IdbIndexParameters",
+    "IdbKeyRange",
+    "IdbObjectStore",
+    "IdbObjectStoreParameters",
+    "IdbOpenDbRequest",
+    "IdbOpenDbOptions",
+    "IdbRequest",
+    "IdbTransaction",
+    "IdbTransactionMode",
+    "StorageType",
+    "Window",
+] }
+wee_alloc = { version = "0.4.5", optional = true }
+
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.13"
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
