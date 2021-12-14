@@ -1,10 +1,8 @@
 use std::fmt::Debug;
 
+use async_macros::select;
+use async_oneshot::{oneshot, Receiver, Sender};
 use js_sys::Function;
-use tokio::{
-    select,
-    sync::oneshot::{Receiver, Sender},
-};
 use wasm_bindgen::{prelude::Closure, JsCast, UnwrapThrowExt};
 use web_sys::Event;
 
@@ -41,10 +39,14 @@ where
     }
 
     pub async fn finish(self) -> Result<T> {
+        let success_fut = self.success_observer.finish();
+        let error_fut = self.error_observer.finish();
+
         let res = select! {
-            res = self.success_observer.finish() => res,
-            res = self.error_observer.finish() => res,
-        }?;
+            success_fut,
+            error_fut,
+        }
+        .await?;
 
         res
     }
@@ -63,12 +65,12 @@ where
     T: Debug + 'static,
 {
     pub fn new(value: T) -> Self {
-        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let (sender, receiver) = oneshot();
         build_observer(value, sender, receiver)
     }
 
     pub fn new_lazy(f: impl Fn(&Event) -> T + 'static) -> Self {
-        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let (sender, receiver) = oneshot();
         build_lazy_observer(f, sender, receiver)
     }
 
@@ -95,13 +97,13 @@ where
 
 fn build_lazy_observer<T>(
     f: impl FnOnce(&Event) -> T + 'static,
-    sender: Sender<T>,
+    mut sender: Sender<T>,
     receiver: Receiver<T>,
 ) -> Observer<T>
 where
     T: Debug + 'static,
 {
-    let closure = Closure::once(|event: Event| {
+    let closure = Closure::once(move |event: Event| {
         sender
             .send(f(&event))
             .map_err(|_| ErrorType::AsyncChannelError.into_error())
