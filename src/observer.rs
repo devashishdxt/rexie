@@ -1,8 +1,10 @@
 use std::fmt::Debug;
 
-use async_macros::select;
-use async_oneshot::{oneshot, Receiver, Sender};
 use js_sys::Function;
+use tokio::{
+    select,
+    sync::oneshot::{channel as oneshot, Receiver, Sender},
+};
 use wasm_bindgen::{prelude::Closure, JsCast, UnwrapThrowExt};
 use web_sys::Event;
 
@@ -43,10 +45,9 @@ where
         let error_fut = self.error_observer.finish();
 
         let res = select! {
-            success_fut,
-            error_fut,
-        }
-        .await?;
+            res = success_fut => res,
+            res = error_fut => res,
+        }?;
 
         res
     }
@@ -97,7 +98,7 @@ where
 
 fn build_lazy_observer<T>(
     f: impl FnOnce(&Event) -> T + 'static,
-    mut sender: Sender<T>,
+    sender: Sender<T>,
     receiver: Receiver<T>,
 ) -> Observer<T>
 where
