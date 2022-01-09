@@ -1,119 +1,116 @@
-use std::fmt;
-
 use js_sys::Error as JsError;
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
-#[cfg(not(feature = "js"))]
+/// Result with `rexie::Error` as error type.
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[cfg(feature = "js")]
-pub type Result<T> = std::result::Result<T, JsValue>;
-
-#[derive(Debug, Error, Clone)]
-pub struct Error {
-    error_type: ErrorType,
-    inner: Option<JsValue>,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.inner {
-            None => write!(f, "{}", self.error_type),
-            Some(ref inner) => write!(f, "{}: {}", self.error_type, option_display(inner)),
-        }
-    }
-}
-
-fn option_display(option: &JsValue) -> String {
-    match option.as_string() {
-        Some(s) => s,
-        None => "".to_string(),
-    }
-}
-
-impl Error {
-    pub fn error_type(&self) -> ErrorType {
-        self.error_type
-    }
-
-    pub(crate) fn set_inner(mut self, inner: JsValue) -> Self {
-        self.inner = Some(inner);
-        self
-    }
-}
-
-impl From<ErrorType> for Error {
-    fn from(error_type: ErrorType) -> Self {
-        Self {
-            error_type,
-            inner: None,
-        }
-    }
-}
-
-#[derive(Debug, Error, Clone, Copy)]
-pub enum ErrorType {
+/// Error type for `rexie` crate
+#[derive(Debug, Error, Clone, PartialEq)]
+pub enum Error {
+    /// Error when receiving message from async channel
     #[error("error when receiving message from async channel")]
     AsyncChannelError,
 
+    /// Error when fetching DOM exception
+    #[error("error when fetching DOM exception: {}", js_error_display(.0))]
+    DomExceptionError(JsValue),
+
+    /// DOM Exception is none
+    #[error("dom exception is none")]
+    DomExceptionNotFound,
+
+    /// Event target is none
     #[error("event target is none")]
     EventTargetNotFound,
 
-    #[error("index creation failed")]
-    IndexCreationFailed,
+    /// Index creation failed
+    #[error("index creation failed: {}", js_error_display(.0))]
+    IndexCreationFailed(JsValue),
 
-    #[error("index open failed")]
-    IndexOpenFailed,
+    /// Index open failed
+    #[error("index open failed: {}", js_error_display(.0))]
+    IndexOpenFailed(JsValue),
 
-    #[error("indexed db error")]
-    IndexedDBError,
+    /// Failed to delete indexed db
+    #[error("failed to delete indexed db: {}", js_error_display(.0))]
+    IndexedDbDeleteFailed(JsValue),
 
+    /// Indexed db not found
     #[error("indexed db is none")]
-    IndexedDBNotFound,
+    IndexedDbNotFound,
 
-    #[error("indexed db not supported")]
-    IndexedDBNotSupported,
+    /// Indexed db not supported
+    #[error("indexed db not supported: {}", js_error_display(.0))]
+    IndexedDbNotSupported(JsValue),
 
-    #[error("failed to open indexed db")]
-    IndexedDBOpenFailed,
+    /// Failed to open indexed db
+    #[error("failed to open indexed db: {}", js_error_display(.0))]
+    IndexedDbOpenFailed(JsValue),
 
-    #[error("key range error")]
-    KeyRangeError,
+    /// Failed to execute indexed db request
+    #[error("failed to execute indexed db request: {}", js_error_display(.0))]
+    IndexedDbRequestError(JsValue),
 
-    #[error("object store creation failed")]
-    ObjectStoreCreationFailed,
+    /// Key range error
+    #[error("key range error: {}", js_error_display(.0))]
+    KeyRangeError(JsValue),
 
-    #[error("failed to open object store")]
-    ObjectStoreOpenFailed,
+    /// Object store creation failed
+    #[error("object store creation failed: {}", js_error_display(.0))]
+    ObjectStoreCreationFailed(JsValue),
 
-    #[error("failed to execute db transaction")]
-    TransactionExecutionFailed,
+    /// Failed to open object store
+    #[error("failed to open object store: {}", js_error_display(.0))]
+    ObjectStoreOpenFailed(JsValue),
 
-    #[error("failed to open db transaction")]
-    TransactionOpenFailed,
+    /// Failed to execute indexed db transaction
+    #[error("failed to execute db transaction: {}", js_error_display(.0))]
+    TransactionExecutionFailed(JsValue),
 
-    #[error("window object not found")]
+    /// Transaction is none
+    #[error("transaction is none")]
+    TransactionNotFound,
+
+    /// failed to open db transaction
+    #[error("failed to open db transaction: {}", js_error_display(.0))]
+    TransactionOpenFailed(JsValue),
+
+    /// Unexpected JS type
+    #[error("unexpected js type")]
+    UnexpectedJsType,
+
+    /// window object is none
+    #[error("window object is none")]
     WindowNotFound,
 }
 
-impl ErrorType {
-    pub(crate) fn into_error(self) -> Error {
-        Error::from(self)
-    }
-}
-
-impl From<ErrorType> for JsValue {
-    fn from(error_type: ErrorType) -> Self {
-        JsError::new(&error_type.to_string()).into()
-    }
+fn js_error_display(option: &JsValue) -> String {
+    ToString::to_string(&JsError::from(option.clone()).to_string())
 }
 
 impl From<Error> for JsValue {
-    fn from(error: Error) -> JsValue {
-        match error.inner {
-            Some(inner) => inner,
-            None => error.error_type.into(),
+    fn from(error: Error) -> Self {
+        match error {
+            Error::AsyncChannelError => "AsyncChannelError".into(),
+            Error::EventTargetNotFound => "EventTargetNotFound".into(),
+            Error::IndexCreationFailed(js_value) => js_value,
+            Error::IndexOpenFailed(js_value) => js_value,
+            Error::IndexedDbNotFound => "IndexedDbNotFound".into(),
+            Error::IndexedDbNotSupported(js_value) => js_value,
+            Error::IndexedDbOpenFailed(js_value) => js_value,
+            Error::KeyRangeError(js_value) => js_value,
+            Error::ObjectStoreCreationFailed(js_value) => js_value,
+            Error::ObjectStoreOpenFailed(js_value) => js_value,
+            Error::TransactionExecutionFailed(js_value) => js_value,
+            Error::TransactionOpenFailed(js_value) => js_value,
+            Error::WindowNotFound => "WindowNotFound".into(),
+            Error::DomExceptionError(js_value) => js_value,
+            Error::DomExceptionNotFound => "DomExceptionNotFound".into(),
+            Error::IndexedDbDeleteFailed(js_value) => js_value,
+            Error::TransactionNotFound => "TransactionNotFound".into(),
+            Error::IndexedDbRequestError(js_value) => js_value,
+            Error::UnexpectedJsType => "UnxpectedJsType".into(),
         }
     }
 }

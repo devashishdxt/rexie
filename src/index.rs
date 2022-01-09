@@ -1,10 +1,8 @@
-#[cfg(feature = "js")]
-use wasm_bindgen::prelude::*;
 use web_sys::{IdbIndexParameters, IdbObjectStore};
 
-use crate::{ErrorType, Result};
+use crate::{Error, Result};
 
-#[cfg_attr(feature = "js", wasm_bindgen)]
+/// An index builder.
 pub struct Index {
     pub(crate) name: String,
     pub(crate) key_path: String,
@@ -12,9 +10,8 @@ pub struct Index {
     pub(crate) multi_entry: Option<bool>,
 }
 
-#[cfg_attr(feature = "js", wasm_bindgen)]
 impl Index {
-    #[cfg_attr(feature = "js", wasm_bindgen(constructor))]
+    /// Creates a new index with given name and key path
     pub fn new(name: &str, key_path: &str) -> Self {
         Self {
             name: name.to_owned(),
@@ -24,12 +21,13 @@ impl Index {
         }
     }
 
+    /// Specify whether the index should be unique
     pub fn unique(mut self, unique: bool) -> Self {
         self.unique = Some(unique);
         self
     }
 
-    #[cfg_attr(feature = "js", wasm_bindgen(js_name = "multiEntry"))]
+    /// Specify whether the index should be multi-entry, i.e., type of the value contained in key path is an array
     pub fn multi_entry(mut self, multi_entry: bool) -> Self {
         self.multi_entry = Some(multi_entry);
         self
@@ -51,11 +49,7 @@ impl Index {
 
             object_store
                 .create_index_with_str_and_optional_parameters(&self.name, &self.key_path, &params)
-                .map_err(|js_value| {
-                    ErrorType::IndexCreationFailed
-                        .into_error()
-                        .set_inner(js_value)
-                })?;
+                .map_err(Error::IndexCreationFailed)?;
         }
 
         Ok(())

@@ -3,20 +3,17 @@ use std::collections::HashSet;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Event, IdbDatabase, IdbFactory, IdbOpenDbRequest, Window};
 
-use crate::{
-    observer::ResultObserver, utils::set_panic_hook, ErrorType, ObjectStore, Result, Rexie,
-};
+use crate::{request::wait_request, utils::set_panic_hook, Error, ObjectStore, Result, Rexie};
 
-#[cfg_attr(feature = "js", wasm_bindgen)]
+/// Builder for creating a new database.
 pub struct RexieBuilder {
     name: String,
     version: Option<u32>,
     object_stores: Vec<ObjectStore>,
 }
 
-#[cfg_attr(feature = "js", wasm_bindgen)]
 impl RexieBuilder {
-    #[cfg_attr(feature = "js", wasm_bindgen(constructor))]
+    /// Creates a new database builder with given name.
     pub fn new(name: &str) -> Self {
         set_panic_hook();
 
@@ -27,62 +24,44 @@ impl RexieBuilder {
         }
     }
 
+    /// Specify version of the database.
     pub fn version(mut self, version: u32) -> Self {
         self.version = Some(version);
         self
     }
 
-    #[cfg_attr(feature = "js", wasm_bindgen(js_name = "addObjectStore"))]
+    /// Add an object store to the database.
     pub fn add_object_store(mut self, object_store: ObjectStore) -> Self {
         self.object_stores.push(object_store);
         self
     }
 
+    /// Build the database.
     pub async fn build(self) -> Result<Rexie> {
         let idb_open_request = get_idb_open_request(&self.name, self.version)?;
-
         let _upgrade_handler = set_upgrade_handler(&idb_open_request, self.object_stores);
-
-        let observer = ResultObserver::new((), |event| {
-            let target = event.target().unwrap_throw();
-            let request: &IdbOpenDbRequest = AsRef::<JsValue>::as_ref(&target).unchecked_ref();
-
-            #[allow(clippy::useless_conversion)]
-            match request.error() {
-                Ok(Some(exception)) => Err(ErrorType::IndexedDBOpenFailed
-                    .into_error()
-                    .set_inner(exception.into())
-                    .into()),
-                Ok(None) => Err(ErrorType::IndexedDBError.into()),
-                Err(error) => Err(ErrorType::IndexedDBError
-                    .into_error()
-                    .set_inner(error)
-                    .into()),
-            }
-        });
-
-        idb_open_request.set_onsuccess(Some(observer.get_success_callback()));
-        idb_open_request.set_onerror(Some(observer.get_error_callback()));
-
-        observer.finish().await?;
-
-        let db = idb_open_request
-            .result()
-            .map_err(|js_value| {
-                ErrorType::IndexedDBNotFound
-                    .into_error()
-                    .set_inner(js_value)
-            })?
+        let db = wait_request(idb_open_request, Error::IndexedDbOpenFailed)
+            .await?
             .unchecked_into();
 
         Ok(Rexie { db })
     }
+
+    /// Delete the database.
+    pub async fn delete(self) -> Result<()> {
+        let factory = get_idb_factory()?;
+        let idb_open_request = factory
+            .delete_database(&self.name)
+            .map_err(Error::IndexedDbOpenFailed)?;
+
+        wait_request(idb_open_request, Error::IndexedDbDeleteFailed)
+            .await
+            .map(|_| ())
+    }
 }
 
 fn get_window() -> Result<Window> {
-    web_sys::window()
-        .ok_or_else(|| ErrorType::WindowNotFound.into_error())
-        .map_err(Into::into)
+    web_sys::window().ok_or(Error::WindowNotFound)
 }
 
 fn get_idb_factory() -> Result<IdbFactory> {
@@ -90,13 +69,8 @@ fn get_idb_factory() -> Result<IdbFactory> {
 
     window
         .indexed_db()
-        .map_err(|js_value| {
-            ErrorType::IndexedDBNotSupported
-                .into_error()
-                .set_inner(js_value)
-        })?
-        .ok_or_else(|| ErrorType::IndexedDBNotSupported.into_error())
-        .map_err(Into::into)
+        .map_err(Error::IndexedDbNotSupported)?
+        .ok_or(Error::IndexedDbNotFound)
 }
 
 fn get_idb_open_request(name: &str, version: Option<u32>) -> Result<IdbOpenDbRequest> {
@@ -106,12 +80,7 @@ fn get_idb_open_request(name: &str, version: Option<u32>) -> Result<IdbOpenDbReq
         Some(version) => idb_factory.open_with_u32(name, version),
         None => idb_factory.open(name),
     }
-    .map_err(|js_value| {
-        ErrorType::IndexedDBOpenFailed
-            .into_error()
-            .set_inner(js_value)
-    })
-    .map_err(Into::into)
+    .map_err(Error::IndexedDbOpenFailed)
 }
 
 fn set_upgrade_handler(
@@ -132,16 +101,12 @@ fn upgrade_handler(event: Event, object_stores: Vec<ObjectStore>) -> Result<()> 
 
     let idb_open_request: IdbOpenDbRequest = event
         .target()
-        .ok_or_else(|| ErrorType::EventTargetNotFound.into_error())?
+        .ok_or(Error::EventTargetNotFound)?
         .unchecked_into();
 
     let idb: IdbDatabase = idb_open_request
         .result()
-        .map_err(|js_value| {
-            ErrorType::IndexedDBNotFound
-                .into_error()
-                .set_inner(js_value)
-        })?
+        .map_err(Error::IndexedDbNotSupported)?
         .unchecked_into();
 
     for object_store in object_stores {

@@ -1,13 +1,11 @@
 use std::collections::HashSet;
 
-#[cfg(feature = "js")]
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::UnwrapThrowExt;
 use web_sys::{IdbDatabase, IdbObjectStoreParameters, IdbOpenDbRequest};
 
-use crate::{ErrorType, Index, Result};
+use crate::{Error, Index, Result};
 
-#[cfg_attr(feature = "js", wasm_bindgen)]
+/// An object store builder.
 pub struct ObjectStore {
     pub(crate) name: String,
     pub(crate) key_path: Option<String>,
@@ -15,9 +13,8 @@ pub struct ObjectStore {
     pub(crate) indexes: Vec<Index>,
 }
 
-#[cfg_attr(feature = "js", wasm_bindgen)]
 impl ObjectStore {
-    #[cfg_attr(feature = "js", wasm_bindgen(constructor))]
+    /// Creates a new object store with given name
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
@@ -27,19 +24,19 @@ impl ObjectStore {
         }
     }
 
-    #[cfg_attr(feature = "js", wasm_bindgen(js_name = "keyPath"))]
+    /// Specify key path for the object store
     pub fn key_path(mut self, key_path: &str) -> Self {
         self.key_path = Some(key_path.to_owned());
         self
     }
 
-    #[cfg_attr(feature = "js", wasm_bindgen(js_name = "autoIncrement"))]
+    /// Specify whether the object store should auto increment keys
     pub fn auto_increment(mut self, auto_increment: bool) -> Self {
         self.auto_increment = Some(auto_increment);
         self
     }
 
-    #[cfg_attr(feature = "js", wasm_bindgen(js_name = "addIndex"))]
+    /// Add an index to the object store
     pub fn add_index(mut self, index: Index) -> Self {
         self.indexes.push(index);
         self
@@ -57,13 +54,11 @@ impl ObjectStore {
         let object_store = if idb.object_store_names().contains(&self.name) {
             let transaction = idb_open_request
                 .transaction()
-                .ok_or_else(|| ErrorType::TransactionOpenFailed.into_error())?;
+                .ok_or(Error::TransactionNotFound)?;
 
-            transaction.object_store(&self.name).map_err(|js_value| {
-                ErrorType::ObjectStoreOpenFailed
-                    .into_error()
-                    .set_inner(js_value)
-            })?
+            transaction
+                .object_store(&self.name)
+                .map_err(Error::ObjectStoreOpenFailed)?
         } else {
             let mut params = IdbObjectStoreParameters::new();
 
@@ -76,11 +71,7 @@ impl ObjectStore {
             }
 
             idb.create_object_store_with_optional_parameters(&self.name, &params)
-                .map_err(|js_value| {
-                    ErrorType::ObjectStoreCreationFailed
-                        .into_error()
-                        .set_inner(js_value)
-                })?
+                .map_err(Error::ObjectStoreCreationFailed)?
         };
 
         for index in self.indexes {

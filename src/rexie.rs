@@ -1,46 +1,31 @@
 use js_sys::Array;
-#[cfg(feature = "js")]
 use wasm_bindgen::prelude::*;
-#[cfg(feature = "js")]
-use web_sys::DomStringList;
 use web_sys::IdbDatabase;
 
-use crate::{ErrorType, Result, RexieBuilder, Transaction, TransactionMode};
+use crate::{Error, Result, RexieBuilder, Transaction, TransactionMode};
 
-#[cfg(not(feature = "js"))]
-type StoreNames = Vec<String>;
-
-#[cfg(feature = "js")]
-type StoreNames = Array;
-
-#[cfg_attr(feature = "js", wasm_bindgen)]
+/// Rexie database (wrapper on top of indexed db)
 pub struct Rexie {
     pub(crate) db: IdbDatabase,
 }
 
-#[cfg_attr(feature = "js", wasm_bindgen)]
 impl Rexie {
+    /// Creates a builder for database with given name
     pub fn builder(name: &str) -> RexieBuilder {
         RexieBuilder::new(name)
     }
 
-    #[cfg_attr(feature = "js", wasm_bindgen(getter))]
+    /// Returns name of the database
     pub fn name(&self) -> String {
         self.db.name()
     }
 
-    #[cfg_attr(feature = "js", wasm_bindgen(getter))]
+    /// Returns version of the database
     pub fn version(&self) -> f64 {
         self.db.version()
     }
 
-    #[cfg(feature = "js")]
-    #[wasm_bindgen(getter, js_name = "storeNames")]
-    pub fn store_names(&self) -> DomStringList {
-        self.db.object_store_names()
-    }
-
-    #[cfg(not(feature = "js"))]
+    /// Returns names of all stores in the database
     pub fn store_names(&self) -> Vec<String> {
         let list = self.db.object_store_names();
 
@@ -55,30 +40,32 @@ impl Rexie {
         result
     }
 
-    pub fn transaction(
+    /// Creates a new transaction on the database
+    pub fn transaction<T: AsRef<str>>(
         &self,
-        store_names: StoreNames,
+        store_names: &[T],
         mode: TransactionMode,
     ) -> Result<Transaction> {
-        #[cfg(not(feature = "js"))]
         let store_names: Array = store_names
-            .into_iter()
-            .map(wasm_bindgen::JsValue::from)
+            .iter()
+            .map(|s| JsValue::from(s.as_ref()))
             .collect();
 
         let idb_transaction = self
             .db
             .transaction_with_str_sequence_and_mode(&store_names, mode.into())
-            .map_err(|js_value| {
-                ErrorType::TransactionOpenFailed
-                    .into_error()
-                    .set_inner(js_value)
-            })?;
+            .map_err(Error::TransactionOpenFailed)?;
 
         Ok(Transaction { idb_transaction })
     }
 
+    /// Closes the database
     pub fn close(self) {
         self.db.close();
+    }
+
+    /// Deletes a database
+    pub async fn delete(name: &str) -> Result<()> {
+        Self::builder(name).delete().await
     }
 }
