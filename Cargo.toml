@@ -27,12 +27,8 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 js-sys = "0.3.55"
 num-traits = { version = "0.2.14", default-features = false }
 thiserror = "1.0.30"
-tokio = { version = "1.15.0", default-features = false, features = [
-    "macros",
-    "sync",
-] }
+tokio = { version = "1.15.0", default-features = false, features = ["sync"] }
 wasm-bindgen = "0.2.78"
-wasm-bindgen-futures = "0.4.28"
 web-sys = { version = "0.3.55", features = [
     "console",
     "DomException",
