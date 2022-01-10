@@ -1,69 +1,101 @@
-<div align="center">
+# rexie
 
-  <h1><code>wasm-pack-template</code></h1>
+Rexie is an easy-to-use, futures based wrapper around IndexedDB that compiles to webassembly.
 
-  <strong>A template for kick starting a Rust and WebAssembly project using <a href="https://github.com/rustwasm/wasm-pack">wasm-pack</a>.</strong>
+## Usage
 
-  <p>
-    <a href="https://travis-ci.org/rustwasm/wasm-pack-template"><img src="https://img.shields.io/travis/rustwasm/wasm-pack-template.svg?style=flat-square" alt="Build Status" /></a>
-  </p>
+To use Rexie, you need to add the following to your `Cargo.toml`:
 
-  <h3>
-    <a href="https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html">Tutorial</a>
-    <span> | </span>
-    <a href="https://discordapp.com/channels/442252698964721669/443151097398296587">Chat</a>
-  </h3>
-
-  <sub>Built with 🦀🕸 by <a href="https://rustwasm.github.io/">The Rust and WebAssembly Working Group</a></sub>
-</div>
-
-## About
-
-[**📚 Read this template tutorial! 📚**][template-docs]
-
-This template is designed for compiling Rust libraries into WebAssembly and
-publishing the resulting package to NPM.
-
-Be sure to check out [other `wasm-pack` tutorials online][tutorials] for other
-templates and usages of `wasm-pack`.
-
-[tutorials]: https://rustwasm.github.io/docs/wasm-pack/tutorials/index.html
-[template-docs]: https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/index.html
-
-## 🚴 Usage
-
-### 🐑 Use `cargo generate` to Clone this Template
-
-[Learn more about `cargo generate` here.](https://github.com/ashleygwilliams/cargo-generate)
-
-```
-cargo generate --git https://github.com/rustwasm/wasm-pack-template.git --name my-project
-cd my-project
+```toml
+[dependencies]
+rexie = "0.1"
 ```
 
-### 🛠️ Build with `wasm-pack build`
+### Example
 
+To create a new database, you can use the [`Rexie::builder`] method:
+
+```rust
+use rexie::*;
+
+async fn build_database() -> Result<Rexie> {
+   // Create a new database
+   let rexie = Rexie::builder("test")
+       // Set the version of the database to 1.0
+       .version(1)
+       // Add an object store named `employees`
+       .add_object_store(
+           ObjectStore::new("employees")
+               // Set the key path to `id`
+               .key_path("id")
+               // Enable auto increment
+               .auto_increment(true)
+               // Add an index named `email` with the key path `email` with unique enabled
+               .add_index(Index::new("email", "email").unique(true)),
+       )
+       // Build the database
+       .build()
+       .await?;
+
+    // Check basic details of the database
+    assert_eq!(rexie.name(), "test");
+    assert_eq!(rexie.version(), 1.0);
+    assert_eq!(rexie.store_names(), vec!["employees"]);
+
+    Ok(rexie)
+}
 ```
-wasm-pack build
+
+To add an employee, you can use the [`Store::add`] method after creating a [`Transaction`]:
+
+```rust
+use rexie::*;
+
+async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
+    let transaction = rexie.transaction(&["employees"], TransactionMode::ReadWrite)?;
+
+    let employees = transaction.store("employees")?;
+
+    let employee = serde_json::json!({
+        "name": name,
+        "email": email,
+    });
+    let employee = serde_wasm_bindgen::to_value(&employee).unwrap();
+    let employee_id = employees.add(&employee, None).await?;
+
+    transaction.commit().await?;
+    Ok(num_traits::cast(employee_id.as_f64().unwrap()).unwrap())
+}
 ```
 
-### 🔬 Test in Headless Browsers with `wasm-pack test`
+To get an employee, you can use the [`Store::get`] method after creating a [`Transaction`]:
 
+```rust
+use rexie::*;
+
+async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<serde_json::Value>> {
+    let transaction = rexie.transaction(&["employees"], TransactionMode::ReadOnly)?;
+
+    let employees = transaction.store("employees")?;
+
+    let employee = employees.get(&id.into()).await?;
+    let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();
+
+    transaction.commit().await?;
+    Ok(employee)
+}
 ```
-wasm-pack test --headless --firefox
-```
 
-### 🎁 Publish to NPM with `wasm-pack publish`
+## License
 
-```
-wasm-pack publish
-```
+Licensed under either of
 
-## 🔋 Batteries Included
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
 
-* [`wasm-bindgen`](https://github.com/rustwasm/wasm-bindgen) for communicating
-  between WebAssembly and JavaScript.
-* [`console_error_panic_hook`](https://github.com/rustwasm/console_error_panic_hook)
-  for logging panic messages to the developer console.
-* [`wee_alloc`](https://github.com/rustwasm/wee_alloc), an allocator optimized
-  for small code size.
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as
+defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
