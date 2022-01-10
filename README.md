@@ -52,18 +52,27 @@ To add an employee, you can use the `Store::add` method after creating a `Transa
 use rexie::*;
 
 async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
+    // Create a new read-write transaction
     let transaction = rexie.transaction(&["employees"], TransactionMode::ReadWrite)?;
 
+    // Get the `employees` store
     let employees = transaction.store("employees")?;
 
+    // Create an employee
     let employee = serde_json::json!({
         "name": name,
         "email": email,
     });
+    // Convert it to `JsValue`
     let employee = serde_wasm_bindgen::to_value(&employee).unwrap();
+
+    // Add the employee to the store
     let employee_id = employees.add(&employee, None).await?;
 
+    // Commit the transaction
     transaction.commit().await?;
+
+    // Return the employee id
     Ok(num_traits::cast(employee_id.as_f64().unwrap()).unwrap())
 }
 ```
@@ -74,14 +83,21 @@ To get an employee, you can use the `Store::get` method after creating a `Transa
 use rexie::*;
 
 async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<serde_json::Value>> {
+    // Create a new read-only transaction
     let transaction = rexie.transaction(&["employees"], TransactionMode::ReadOnly)?;
 
+    // Get the `employees` store
     let employees = transaction.store("employees")?;
 
+    // Get the employee
     let employee = employees.get(&id.into()).await?;
+    // Convert it to `serde_json::Value` from `JsValue`
     let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();
 
+    // Commit the transaction
     transaction.commit().await?;
+
+    // Return the employee
     Ok(employee)
 }
 ```
