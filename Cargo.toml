@@ -12,9 +12,6 @@ readme = "README.md"
 include = ["Cargo.toml", "src/**/*.rs", "tests/**/*.rs", "README.md"]
 edition = "2021"
 
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-
 [lib]
 path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
