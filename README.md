@@ -13,7 +13,7 @@ rexie = "0.1"
 
 ### Example
 
-To create a new database, you can use the [`Rexie::builder`] method:
+To create a new database, you can use the `Rexie::builder` method:
 
 ```rust
 use rexie::*;
@@ -46,7 +46,7 @@ async fn build_database() -> Result<Rexie> {
 }
 ```
 
-To add an employee, you can use the [`Store::add`] method after creating a [`Transaction`]:
+To add an employee, you can use the `Store::add` method after creating a `Transaction`:
 
 ```rust
 use rexie::*;
@@ -68,7 +68,7 @@ async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
 }
 ```
 
-To get an employee, you can use the [`Store::get`] method after creating a [`Transaction`]:
+To get an employee, you can use the `Store::get` method after creating a `Transaction`:
 
 ```rust
 use rexie::*;
