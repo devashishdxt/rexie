@@ -223,7 +223,9 @@ async fn test_db_duplicate_add_fail() {
     let id = add_employee(&rexie, "John Doe New", "john@example.com").await;
     assert!(id.is_err());
     let err = id.unwrap_err();
-    assert_eq!(err.to_string(), "failed to execute indexed db request: ConstraintError: A mutation operation in a transaction failed because a constraint was not satisfied.");
+    assert!(err
+        .to_string()
+        .starts_with("failed to execute indexed db request: ConstraintError"));
 
     close_and_delete_db(rexie).await;
 }
