@@ -32,6 +32,7 @@ web-sys = { version = "0.3.55", features = [
     "DomStringList",
     "Event",
     "IdbCursorWithValue",
+	"IdbCursorDirection",
     "IdbDatabase",
     "IdbFactory",
     "IdbIndex",

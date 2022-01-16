@@ -1,5 +1,5 @@
 use wasm_bindgen::JsValue;
-use web_sys::IdbIndex;
+use web_sys::{IdbCursorDirection, IdbIndex};
 
 use crate::{
     request::{wait_cursor_request, wait_request},
@@ -42,16 +42,23 @@ impl StoreIndex {
         wait_request(request, Error::IndexedDbRequestError).await
     }
 
-    /// Gets all key-value pairs from the store with given key range, limit and offset
+    /// Gets all key-value pairs from the store with given key range, limit, offset and direction
     pub async fn get_all(
         &self,
         key_range: Option<&KeyRange>,
         limit: Option<u32>,
         offset: Option<u32>,
+        direction: Option<IdbCursorDirection>,
     ) -> Result<Vec<(JsValue, JsValue)>> {
-        let request = match key_range {
-            Some(key_range) => self.idb_index.open_cursor_with_range(key_range.as_ref()),
-            None => self.idb_index.open_cursor(),
+        let request = match (key_range, direction) {
+            (Some(key_range), Some(direction)) => self
+                .idb_index
+                .open_cursor_with_range_and_direction(key_range.as_ref(), direction),
+            (Some(key_range), None) => self.idb_index.open_cursor_with_range(key_range.as_ref()),
+            (None, Some(direction)) => self
+                .idb_index
+                .open_cursor_with_range_and_direction(&JsValue::null(), direction),
+            _ => self.idb_index.open_cursor(),
         }
         .map_err(Error::IndexedDbRequestError)?;
 

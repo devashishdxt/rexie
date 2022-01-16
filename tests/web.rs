@@ -10,10 +10,11 @@ use rexie::{Index, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
+use web_sys::IdbCursorDirection;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct Employee {
     id: u32,
     name: String,
@@ -116,7 +117,10 @@ async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<Employee>> {
     Ok(employee)
 }
 
-async fn get_all_employees(rexie: &Rexie) -> Result<Vec<Employee>> {
+async fn get_all_employees(
+    rexie: &Rexie,
+    direction: Option<IdbCursorDirection>,
+) -> Result<Vec<Employee>> {
     let transaction = rexie.transaction(&["employees"], TransactionMode::ReadOnly);
     assert!(transaction.is_ok());
     let transaction = transaction.unwrap();
@@ -126,7 +130,7 @@ async fn get_all_employees(rexie: &Rexie) -> Result<Vec<Employee>> {
     let employees = employees.unwrap();
 
     let employees: Vec<JsValue> = employees
-        .get_all(None, None, None)
+        .get_all(None, None, None, direction)
         .await?
         .into_iter()
         .map(|pair| pair.1)
@@ -288,11 +292,20 @@ async fn test_get_all_pass() {
     let id2 = add_employee(&rexie, "Scooby Doo", "scooby@example.com").await;
     assert_eq!(id2, Ok(2));
 
-    let employees = get_all_employees(&rexie).await;
+    let employees = get_all_employees(&rexie, None).await;
     assert!(employees.is_ok());
     let employees = employees.unwrap();
-
     assert_eq!(employees.len(), 2);
+
+    // Test reversed
+    let asc_employees = get_all_employees(&rexie, Some(IdbCursorDirection::Next)).await;
+    assert!(asc_employees.is_ok());
+    let asc_employees = asc_employees.unwrap();
+    let desc_employees = get_all_employees(&rexie, Some(IdbCursorDirection::Prev)).await;
+    assert!(desc_employees.is_ok());
+    let desc_employees = desc_employees.unwrap();
+    assert_eq!(desc_employees[0], asc_employees[1]);
+    assert_eq!(desc_employees[1], asc_employees[0]);
 
     // TODO: check employee details
 
