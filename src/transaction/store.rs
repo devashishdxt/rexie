@@ -1,9 +1,9 @@
 use wasm_bindgen::prelude::*;
-use web_sys::{IdbCursorDirection, IdbObjectStore};
+use web_sys::IdbObjectStore;
 
 use crate::{
     request::{wait_cursor_request, wait_request},
-    Error, KeyRange, Result, StoreIndex,
+    Direction, Error, KeyRange, Result, StoreIndex,
 };
 
 /// An object store.
@@ -73,16 +73,16 @@ impl Store {
         key_range: Option<&KeyRange>,
         limit: Option<u32>,
         offset: Option<u32>,
-        direction: Option<IdbCursorDirection>,
+        direction: Option<Direction>,
     ) -> Result<Vec<(JsValue, JsValue)>> {
         let request = match (key_range, direction) {
             (Some(key_range), Some(direction)) => self
                 .idb_store
-                .open_cursor_with_range_and_direction(key_range.as_ref(), direction),
+                .open_cursor_with_range_and_direction(key_range.as_ref(), direction.into()),
             (Some(key_range), None) => self.idb_store.open_cursor_with_range(key_range.as_ref()),
             (None, Some(direction)) => self
                 .idb_store
-                .open_cursor_with_range_and_direction(&JsValue::null(), direction),
+                .open_cursor_with_range_and_direction(&JsValue::null(), direction.into()),
             _ => self.idb_store.open_cursor(),
         }
         .map_err(Error::IndexedDbRequestError)?;

@@ -99,6 +99,7 @@
 //!     Ok(employee)
 //! }
 //! ```
+mod direction;
 mod error;
 mod index;
 mod key_range;
@@ -116,6 +117,7 @@ mod utils;
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 pub use self::{
+    direction::Direction,
     error::{Error, Result},
     index::Index,
     key_range::KeyRange,

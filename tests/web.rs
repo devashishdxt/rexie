@@ -6,11 +6,10 @@ extern crate wasm_bindgen_test;
 
 use std::{assert, assert_eq, option::Option};
 
-use rexie::{Index, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
+use rexie::{Direction, Index, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
-use web_sys::IdbCursorDirection;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
@@ -117,10 +116,7 @@ async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<Employee>> {
     Ok(employee)
 }
 
-async fn get_all_employees(
-    rexie: &Rexie,
-    direction: Option<IdbCursorDirection>,
-) -> Result<Vec<Employee>> {
+async fn get_all_employees(rexie: &Rexie, direction: Option<Direction>) -> Result<Vec<Employee>> {
     let transaction = rexie.transaction(&["employees"], TransactionMode::ReadOnly);
     assert!(transaction.is_ok());
     let transaction = transaction.unwrap();
@@ -298,10 +294,10 @@ async fn test_get_all_pass() {
     assert_eq!(employees.len(), 2);
 
     // Test reversed
-    let asc_employees = get_all_employees(&rexie, Some(IdbCursorDirection::Next)).await;
+    let asc_employees = get_all_employees(&rexie, Some(Direction::Next)).await;
     assert!(asc_employees.is_ok());
     let asc_employees = asc_employees.unwrap();
-    let desc_employees = get_all_employees(&rexie, Some(IdbCursorDirection::Prev)).await;
+    let desc_employees = get_all_employees(&rexie, Some(Direction::Prev)).await;
     assert!(desc_employees.is_ok());
     let desc_employees = desc_employees.unwrap();
     assert_eq!(desc_employees[0], asc_employees[1]);
