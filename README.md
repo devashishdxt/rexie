@@ -8,7 +8,7 @@ To use Rexie, you need to add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rexie = "0.1"
+rexie = "0.2"
 ```
 
 ### Example
