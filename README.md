@@ -94,9 +94,6 @@ async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<serde_json::Value
     // Convert it to `serde_json::Value` from `JsValue`
     let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();
 
-    // Commit the transaction
-    transaction.commit().await?;
-
     // Return the employee
     Ok(employee)
 }
