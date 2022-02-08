@@ -7,7 +7,15 @@ description = "Rexie is an easy-to-use, futures based wrapper around IndexedDB t
 homepage = "https://github.com/devashishdxt/rexie"
 repository = "https://github.com/devashishdxt/rexie"
 categories = ["asynchronous", "database", "wasm", "web-programming"]
-keywords = ["wasm", "indexeddb", "futures", "webassembly", "idb"]
+keywords = [
+    "wasm",
+    "indexeddb",
+    "futures",
+    "webassembly",
+    "idb",
+    "indexed",
+    "db",
+]
 readme = "README.md"
 include = ["Cargo.toml", "src/**/*.rs", "tests/**/*.rs", "README.md"]
 edition = "2021"
