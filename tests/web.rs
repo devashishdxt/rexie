@@ -339,11 +339,11 @@ async fn check_transaction_abort() {
     let id = add_employee(&rexie, "Scooby Doo", "scooby@example.com").await;
     assert_eq!(id, Ok(1));
 
-    // let employees = get_all_employees(&rexie, None).await;
-    // assert!(employees.is_ok());
-    // let employees = employees.unwrap();
+    let employees = get_all_employees(&rexie, None).await;
+    assert!(employees.is_ok());
+    let employees = employees.unwrap();
 
-    // assert_eq!(employees.len(), 1);
+    assert_eq!(employees.len(), 1);
 
     close_and_delete_db(rexie).await;
 }
