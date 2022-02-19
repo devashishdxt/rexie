@@ -1,6 +1,6 @@
 [package]
 name = "rexie"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Devashish Dixit <devashishdxt@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Rexie is an easy-to-use, futures based wrapper around IndexedDB that compiles to webassembly"
@@ -24,7 +24,7 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 js-sys = "0.3.56"
 num-traits = { version = "0.2.14", default-features = false }
 thiserror = "1.0.30"
-tokio = { version = "1.16.1", default-features = false, features = ["sync"] }
+tokio = { version = "1.17.0", default-features = false, features = ["sync"] }
 wasm-bindgen = "0.2.79"
 web-sys = { version = "0.3.56", features = [
     "console",
