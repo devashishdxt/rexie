@@ -67,8 +67,8 @@
 //!     // Add the employee to the store
 //!     let employee_id = employees.add(&employee, None).await?;
 //!     
-//!     // Commit the transaction
-//!     transaction.commit().await?;
+//!     // Waits for the transaction to complete
+//!     transaction.done().await?;
 //!
 //!     // Return the employee id
 //!     Ok(num_traits::cast(employee_id.as_f64().unwrap()).unwrap())
@@ -89,6 +89,7 @@
 //!     
 //!     // Get the employee
 //!     let employee = employees.get(&id.into()).await?;
+//!
 //!     // Convert it to `serde_json::Value` from `JsValue`
 //!     let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();
 //!

@@ -75,7 +75,7 @@ async fn basic_test_db(rexie: &Rexie) {
     assert!(email_index.unique());
     assert!(!email_index.multi_entry());
 
-    assert!(transaction.commit().await.is_ok());
+    assert!(transaction.done().await.is_ok());
 }
 
 /// Closes and deletes the database
@@ -97,7 +97,7 @@ async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
     let employee = serde_wasm_bindgen::to_value(&employee).unwrap();
     let employee_id = employees.add(&employee, None).await?;
 
-    transaction.commit().await?;
+    transaction.done().await?;
     Ok(num_traits::cast(employee_id.as_f64().unwrap()).unwrap())
 }
 
@@ -131,6 +131,7 @@ async fn get_all_employees(rexie: &Rexie, direction: Option<Direction>) -> Resul
         .into_iter()
         .map(|pair| pair.1)
         .collect();
+
     let employees: Vec<Employee> = employees
         .into_iter()
         .map(|employee| serde_wasm_bindgen::from_value(employee).unwrap())
@@ -304,6 +305,45 @@ async fn test_get_all_pass() {
     assert_eq!(desc_employees[1], asc_employees[0]);
 
     // TODO: check employee details
+
+    close_and_delete_db(rexie).await;
+}
+
+#[wasm_bindgen_test]
+async fn check_transaction_abort() {
+    let rexie = create_db().await;
+
+    let transaction = rexie.transaction(&["employees"], TransactionMode::ReadWrite);
+    assert!(transaction.is_ok());
+    let transaction = transaction.unwrap();
+
+    let employees = transaction.store("employees");
+    assert!(employees.is_ok());
+    let employees = employees.unwrap();
+
+    let employee = EmployeeRequest {
+        name: "John Doe",
+        email: "john@example.com",
+    };
+    let employee = serde_wasm_bindgen::to_value(&employee).unwrap();
+    assert!(employees.add(&employee, None).await.is_ok());
+
+    assert!(transaction.abort().await.is_ok());
+
+    let employees = get_all_employees(&rexie, None).await;
+    assert!(employees.is_ok());
+    let employees = employees.unwrap();
+
+    assert!(employees.is_empty());
+
+    let id = add_employee(&rexie, "Scooby Doo", "scooby@example.com").await;
+    assert_eq!(id, Ok(1));
+
+    // let employees = get_all_employees(&rexie, None).await;
+    // assert!(employees.is_ok());
+    // let employees = employees.unwrap();
+
+    // assert_eq!(employees.len(), 1);
 
     close_and_delete_db(rexie).await;
 }

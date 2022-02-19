@@ -69,8 +69,8 @@ async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
     // Add the employee to the store
     let employee_id = employees.add(&employee, None).await?;
 
-    // Commit the transaction
-    transaction.commit().await?;
+    // Waits for the transaction to complete
+    transaction.done().await?;
 
     // Return the employee id
     Ok(num_traits::cast(employee_id.as_f64().unwrap()).unwrap())
@@ -91,6 +91,7 @@ async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<serde_json::Value
 
     // Get the employee
     let employee = employees.get(&id.into()).await?;
+
     // Convert it to `serde_json::Value` from `JsValue`
     let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();
 

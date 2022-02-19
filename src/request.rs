@@ -39,6 +39,10 @@ pub async fn wait_transaction_abort(transaction: IdbTransaction) -> crate::Resul
 
     transaction.set_onabort(Some(get_callback(&abort_closure)));
 
+    transaction
+        .abort()
+        .map_err(Error::TransactionExecutionFailed)?;
+
     receiver.await.map_err(|_| Error::AsyncChannelError)
 }
 
@@ -249,6 +253,10 @@ fn cursor_closure_inner(
     } else {
         let key = cursor.key()?;
         let value = cursor.value()?;
+
+        if value.is_falsy() {
+            return Ok(CursorAction::Break);
+        }
 
         seen.fetch_add(1, Ordering::Relaxed);
 

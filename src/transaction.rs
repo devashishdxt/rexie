@@ -77,8 +77,8 @@ impl Transaction {
         wait_transaction_abort(self.idb_transaction).await
     }
 
-    /// Commits a transaction (this doesn't usually *have* to be called, see [MDN](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/commit))
-    pub async fn commit(self) -> Result<()> {
+    /// Waits for a transaction to complete.
+    pub async fn done(self) -> Result<()> {
         wait_request(self.idb_transaction, Error::TransactionExecutionFailed)
             .await
             .map(|_| ())
