@@ -59,28 +59,18 @@ impl Index {
                 params.multi_entry(multi_entry);
             }
 
-            if self.key_path.len() == 1 {
-                object_store
-                    .create_index_with_str_and_optional_parameters(
-                        &self.name,
-                        &self.key_path[0],
-                        &params,
-                    )
-                    .map_err(Error::IndexCreationFailed)?;
-            } else {
-                object_store
-                    .create_index_with_str_sequence_and_optional_parameters(
-                        &self.name,
-                        &self
-                            .key_path
-                            .into_iter()
-                            .map(|s| JsValue::from_str(&s))
-                            .collect::<Array>()
-                            .into(),
-                        &params,
-                    )
-                    .map_err(Error::IndexCreationFailed)?;
-            }
+            object_store
+                .create_index_with_str_sequence_and_optional_parameters(
+                    &self.name,
+                    &self
+                        .key_path
+                        .into_iter()
+                        .map(|s| JsValue::from_str(&s))
+                        .collect::<Array>()
+                        .into(),
+                    &params,
+                )
+                .map_err(Error::IndexCreationFailed)?;
         }
 
         Ok(())
