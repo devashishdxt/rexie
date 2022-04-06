@@ -9,7 +9,7 @@ use crate::{Error, Index, Result};
 /// An object store builder.
 pub struct ObjectStore {
     pub(crate) name: String,
-    pub(crate) key_path: Option<Vec<String>>,
+    pub(crate) key_path: Vec<String>,
     pub(crate) auto_increment: Option<bool>,
     pub(crate) indexes: Vec<Index>,
 }
@@ -19,7 +19,7 @@ impl ObjectStore {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
-            key_path: None,
+            key_path: Vec::new(),
             auto_increment: None,
             indexes: Vec::new(),
         }
@@ -27,7 +27,7 @@ impl ObjectStore {
 
     /// Specify key path for the object store
     pub fn key_path(mut self, key_path: &str) -> Self {
-        self.key_path = Some(vec![key_path.to_owned()]);
+        self.key_path = vec![key_path.to_owned()];
         self
     }
 
@@ -36,7 +36,7 @@ impl ObjectStore {
         mut self,
         key_path_array: impl IntoIterator<Item = S>,
     ) -> Self {
-        self.key_path = Some(key_path_array.into_iter().map(|s| s.to_string()).collect());
+        self.key_path = key_path_array.into_iter().map(|s| s.to_string()).collect();
         self
     }
 
@@ -76,12 +76,17 @@ impl ObjectStore {
                 params.auto_increment(auto_increment);
             }
 
-            if let Some(key_path) = self.key_path {
-                if key_path.len() == 1 {
-                    params.key_path(Some(&(&key_path[0]).into()));
-                } else {
+            match self.key_path.len() {
+                0 => {
+                    params.key_path(None);
+                }
+                1 => {
+                    params.key_path(Some(&(&self.key_path[0]).into()));
+                }
+                _ => {
                     params.key_path(Some(
-                        &key_path
+                        &self
+                            .key_path
                             .into_iter()
                             .map(|key| JsValue::from_str(&key))
                             .collect::<Array>()
