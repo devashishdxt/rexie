@@ -6,6 +6,7 @@ extern crate wasm_bindgen_test;
 
 use std::{assert, assert_eq, option::Option};
 
+use js_sys::Array;
 use rexie::{Direction, Index, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsValue;
@@ -26,6 +27,22 @@ struct EmployeeRequest<'a> {
     email: &'a str,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+struct Invoice {
+    id: usize,
+    year: u16,
+    agent: String,
+    customer: String,
+}
+
+#[derive(Debug, Serialize)]
+struct InvoiceRequest<'a> {
+    id: usize,
+    year: u16,
+    agent: &'a str,
+    customer: &'a str,
+}
+
 /// Creates a database
 async fn create_db() -> Rexie {
     assert!(Rexie::delete("test").await.is_ok());
@@ -39,6 +56,11 @@ async fn create_db() -> Rexie {
                 .add_index(Index::new("email", "email").unique(true)),
         )
         .add_object_store(ObjectStore::new("departments").auto_increment(true))
+        .add_object_store(
+            ObjectStore::new("invoices")
+                .key_path_array(["id", "year"])
+                .add_index(Index::new_compound("agent_customer", ["agent", "customer"])),
+        )
         .build()
         .await;
     assert!(rexie.is_ok());
@@ -49,7 +71,10 @@ async fn create_db() -> Rexie {
 async fn basic_test_db(rexie: &Rexie) {
     assert_eq!(rexie.name(), "test");
     assert_eq!(rexie.version(), 1.0);
-    assert_eq!(rexie.store_names(), vec!["departments", "employees"]);
+    assert_eq!(
+        rexie.store_names(),
+        vec!["departments", "employees", "invoices"]
+    );
 
     let transaction = rexie.transaction(&["employees"], TransactionMode::ReadOnly);
     assert!(transaction.is_ok());
@@ -164,6 +189,84 @@ async fn clear_employees(rexie: &Rexie) -> Result<()> {
     employees.clear().await
 }
 
+async fn add_invoice(
+    rexie: &Rexie,
+    id: usize,
+    year: u16,
+    agent: &str,
+    customer: &str,
+) -> Result<()> {
+    let transaction = rexie.transaction(&["invoices"], TransactionMode::ReadWrite);
+    assert!(transaction.is_ok());
+    let transaction = transaction.unwrap();
+
+    let invoices = transaction.store("invoices");
+    assert!(invoices.is_ok());
+    let invoices = invoices.unwrap();
+
+    let invoice = InvoiceRequest {
+        id,
+        year,
+        agent,
+        customer,
+    };
+    let invoice = serde_wasm_bindgen::to_value(&invoice).unwrap();
+    invoices.add(&invoice, None).await?;
+
+    transaction.done().await?;
+    Ok(())
+}
+
+async fn get_invoice(rexie: &Rexie, id: usize, year: u16) -> Result<Option<Invoice>> {
+    let transaction = rexie.transaction(&["invoices"], TransactionMode::ReadOnly);
+    assert!(transaction.is_ok());
+    let transaction = transaction.unwrap();
+
+    let invoices = transaction.store("invoices");
+    assert!(invoices.is_ok());
+    let invoices = invoices.unwrap();
+
+    let invoice = invoices
+        .get(&Array::of2(&JsValue::from_f64(id as _), &JsValue::from_f64(year as _)).into())
+        .await?;
+    let invoice: Option<Invoice> = serde_wasm_bindgen::from_value(invoice).unwrap();
+
+    Ok(invoice)
+}
+
+async fn get_all_invoices_by_agent_and_customer(
+    rexie: &Rexie,
+    agent: &str,
+    customer: &str,
+) -> Result<Vec<Invoice>> {
+    let transaction = rexie.transaction(&["invoices"], TransactionMode::ReadOnly);
+    assert!(transaction.is_ok());
+    let transaction = transaction.unwrap();
+
+    let invoices = transaction.store("invoices");
+    assert!(invoices.is_ok());
+    let invoices = invoices.unwrap();
+
+    let agent_customer_index = invoices.index("agent_customer");
+    assert!(agent_customer_index.is_ok());
+    let agent_customer_index = agent_customer_index.unwrap();
+
+    let invoices = agent_customer_index
+        .get_all(
+            Some(&KeyRange::only(&Array::of2(&agent.into(), &customer.into())).unwrap()),
+            None,
+            None,
+            None,
+        )
+        .await?;
+    let invoices = invoices
+        .into_iter()
+        .map(|(_, value)| serde_wasm_bindgen::from_value(value).unwrap())
+        .collect();
+
+    Ok(invoices)
+}
+
 #[wasm_bindgen_test]
 async fn test_db_creation_pass() {
     let rexie = create_db().await;
@@ -208,6 +311,22 @@ async fn test_db_add_pass() {
     assert!(employee.is_ok());
     let employee = employee.unwrap();
     assert!(employee.is_none());
+
+    let ok = add_invoice(&rexie, 1, 2022, "John Doe", "Umbrella Corp").await;
+    assert!(ok.is_ok());
+    let ok = add_invoice(&rexie, 1, 2023, "Scooby Doo", "Umbrella Corp").await;
+    assert!(ok.is_ok());
+
+    let invoice = get_invoice(&rexie, 1, 2022).await;
+    assert!(invoice.is_ok());
+    let invoice = invoice.unwrap();
+    assert!(invoice.is_some());
+    let invoice = invoice.unwrap();
+
+    assert_eq!(invoice.id, 1);
+    assert_eq!(invoice.year, 2022);
+    assert_eq!(invoice.agent, "John Doe");
+    assert_eq!(invoice.customer, "Umbrella Corp");
 
     close_and_delete_db(rexie).await;
 }
@@ -305,6 +424,23 @@ async fn test_get_all_pass() {
     assert_eq!(desc_employees[1], asc_employees[0]);
 
     // TODO: check employee details
+
+    let ok = add_invoice(&rexie, 1, 2022, "John Doe", "Umbrella Corp").await;
+    assert!(ok.is_ok());
+    let ok = add_invoice(&rexie, 2, 2022, "Scooby Doo", "Umbrella Corp").await;
+    assert!(ok.is_ok());
+    let ok = add_invoice(&rexie, 3, 2022, "John Doe", "Umbrella Corp").await;
+    assert!(ok.is_ok());
+
+    let invoices =
+        get_all_invoices_by_agent_and_customer(&rexie, "John Doe", "Umbrella Corp").await;
+    assert!(invoices.is_ok());
+    let invoices = invoices.unwrap();
+    assert_eq!(invoices.len(), 2);
+    for invoice in invoices {
+        assert!(invoice.id == 1 || invoice.id == 3);
+        assert_eq!(invoice.year, 2022);
+    }
 
     close_and_delete_db(rexie).await;
 }

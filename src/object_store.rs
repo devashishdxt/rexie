@@ -1,5 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, string::ToString};
 
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 use web_sys::{IdbDatabase, IdbObjectStoreParameters, IdbOpenDbRequest};
 
@@ -8,7 +9,7 @@ use crate::{Error, Index, Result};
 /// An object store builder.
 pub struct ObjectStore {
     pub(crate) name: String,
-    pub(crate) key_path: Option<String>,
+    pub(crate) key_path: Vec<String>,
     pub(crate) auto_increment: Option<bool>,
     pub(crate) indexes: Vec<Index>,
 }
@@ -18,7 +19,7 @@ impl ObjectStore {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
-            key_path: None,
+            key_path: Vec::new(),
             auto_increment: None,
             indexes: Vec::new(),
         }
@@ -26,7 +27,16 @@ impl ObjectStore {
 
     /// Specify key path for the object store
     pub fn key_path(mut self, key_path: &str) -> Self {
-        self.key_path = Some(key_path.to_owned());
+        self.key_path = vec![key_path.to_owned()];
+        self
+    }
+
+    /// Specify compound key path for the object store
+    pub fn key_path_array<S: ToString>(
+        mut self,
+        key_path_array: impl IntoIterator<Item = S>,
+    ) -> Self {
+        self.key_path = key_path_array.into_iter().map(|s| s.to_string()).collect();
         self
     }
 
@@ -66,8 +76,23 @@ impl ObjectStore {
                 params.auto_increment(auto_increment);
             }
 
-            if let Some(key_path) = self.key_path {
-                params.key_path(Some(&key_path.into()));
+            match self.key_path.len() {
+                0 => {
+                    params.key_path(None);
+                }
+                1 => {
+                    params.key_path(Some(&(&self.key_path[0]).into()));
+                }
+                _ => {
+                    params.key_path(Some(
+                        &self
+                            .key_path
+                            .into_iter()
+                            .map(|key| JsValue::from_str(&key))
+                            .collect::<Array>()
+                            .into(),
+                    ));
+                }
             }
 
             idb.create_object_store_with_optional_parameters(&self.name, &params)
