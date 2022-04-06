@@ -86,9 +86,9 @@ fn get_idb_open_request(name: &str, version: Option<u32>) -> Result<IdbOpenDbReq
 fn set_upgrade_handler(
     idb_open_request: &IdbOpenDbRequest,
     object_stores: Vec<ObjectStore>,
-) -> Closure<dyn FnMut(Event)> {
+) -> Closure<dyn FnMut(Event) -> std::result::Result<(), js_sys::Error>> {
     let upgrade_handler = Closure::once(move |event: Event| {
-        upgrade_handler(event, object_stores).unwrap_throw();
+        upgrade_handler(event, object_stores).map_err(|err| js_sys::Error::new(&format!("{err:?}")))
     });
 
     idb_open_request.set_onupgradeneeded(Some(upgrade_handler.as_ref().unchecked_ref()));
