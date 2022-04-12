@@ -86,10 +86,9 @@ fn get_idb_open_request(name: &str, version: Option<u32>) -> Result<IdbOpenDbReq
 fn set_upgrade_handler(
     idb_open_request: &IdbOpenDbRequest,
     object_stores: Vec<ObjectStore>,
-) -> Closure<dyn FnMut(Event)> {
-    let upgrade_handler = Closure::once(move |event: Event| {
-        upgrade_handler(event, object_stores).unwrap_throw();
-    });
+) -> Closure<dyn FnMut(Event) -> Result<()>> {
+    let upgrade_handler =
+        Closure::once(move |event: Event| -> Result<()> { upgrade_handler(event, object_stores) });
 
     idb_open_request.set_onupgradeneeded(Some(upgrade_handler.as_ref().unchecked_ref()));
 
@@ -117,7 +116,9 @@ fn upgrade_handler(event: Event, object_stores: Vec<ObjectStore>) -> Result<()> 
     let mut stores_to_remove = Vec::new();
 
     for index in 0..db_store_names.length() {
-        let db_store_name = db_store_names.get(index).unwrap_throw();
+        let db_store_name = db_store_names
+            .get(index)
+            .ok_or_else(|| Error::IndexedDbUpgradeFailed("unable to get store name".into()))?;
 
         if store_names.contains(&db_store_name) {
             store_names.remove(&db_store_name);
@@ -127,7 +128,8 @@ fn upgrade_handler(event: Event, object_stores: Vec<ObjectStore>) -> Result<()> 
     }
 
     for store_name in stores_to_remove {
-        idb.delete_object_store(&store_name).unwrap_throw();
+        idb.delete_object_store(&store_name)
+            .map_err(Error::IndexedDbUpgradeFailed)?;
     }
 
     Ok(())

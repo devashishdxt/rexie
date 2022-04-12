@@ -23,11 +23,11 @@ impl Index {
         }
     }
 
-    /// Creates a new index with given name and compound key path
-    pub fn new_compound<S: ToString>(name: &str, key_path: impl IntoIterator<Item = S>) -> Self {
+    /// Creates a new index with given name and key path array
+    pub fn new_array<'a>(name: &str, key_path_array: impl IntoIterator<Item = &'a str>) -> Self {
         Self {
             name: name.to_owned(),
-            key_path: key_path.into_iter().map(|s| s.to_string()).collect(),
+            key_path: key_path_array.into_iter().map(ToOwned::to_owned).collect(),
             unique: None,
             multi_entry: None,
         }

@@ -54,7 +54,10 @@ pub struct Transaction {
 impl Transaction {
     /// Returns mode of the transaction
     pub fn mode(&self) -> TransactionMode {
-        self.idb_transaction.mode().unwrap_throw().into()
+        self.idb_transaction
+            .mode()
+            .expect_throw("unable to get transaction mode")
+            .into()
     }
 
     /// Returns names of all stores in the transaction
@@ -75,6 +78,24 @@ impl Transaction {
     /// Aborts a transaction
     pub async fn abort(self) -> Result<()> {
         wait_transaction_abort(self.idb_transaction).await
+    }
+
+    /// Commits a transaction
+    ///
+    /// # Note
+    ///
+    /// Note that `commit()` doesn't normally have to be called — a transaction will automatically commit when all
+    /// outstanding requests have been satisfied and no new requests have been made.
+    ///
+    /// [Reference](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/commit)
+    pub async fn commit(self) -> Result<()> {
+        let done = wait_request(&self.idb_transaction, Error::TransactionExecutionFailed);
+
+        self.idb_transaction
+            .commit()
+            .map_err(Error::TransactionCommitFailed)?;
+
+        done.await.map(|_| ())
     }
 
     /// Waits for a transaction to complete.

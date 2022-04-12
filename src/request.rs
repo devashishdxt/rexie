@@ -30,12 +30,8 @@ pub async fn wait_request<R: DbRequest + Unpin>(
 pub async fn wait_transaction_abort(transaction: IdbTransaction) -> crate::Result<()> {
     let (sender, receiver) = oneshot::channel();
 
-    let abort_closure: Closure<dyn FnMut(Event)> = Closure::once(move |_| {
-        sender
-            .send(())
-            .map_err(|_| Error::AsyncChannelError)
-            .unwrap_throw();
-    });
+    let abort_closure: Closure<dyn FnMut(Event) -> crate::Result<()>> =
+        Closure::once(move |_| sender.send(()).map_err(|_| Error::AsyncChannelError));
 
     transaction.set_onabort(Some(get_callback(&abort_closure)));
 
@@ -127,14 +123,27 @@ impl DbRequest for IdbTransaction {
     }
 }
 
+impl<T> DbRequest for &T
+where
+    T: DbRequest,
+{
+    fn on_success(&self, callback: Option<&Function>) {
+        (**self).on_success(callback);
+    }
+
+    fn on_error(&self, callback: Option<&Function>) {
+        (**self).on_error(callback);
+    }
+}
+
 #[must_use = "futures do nothing unless polled or spawned"]
 pub struct RequestFuture<R>
 where
     R: DbRequest + Unpin,
 {
     _inner: R,
-    _success_closure: Closure<dyn FnMut(Event)>,
-    _error_closure: Closure<dyn FnMut(Event)>,
+    _success_closure: Closure<dyn FnMut(Event) -> crate::Result<()>>,
+    _error_closure: Closure<dyn FnMut(Event) -> crate::Result<()>>,
     receiver: UnboundedReceiver<Result<JsValue, JsValue>>,
     map_err: fn(JsValue) -> Error,
 }
@@ -179,23 +188,24 @@ where
 
 fn get_success_closure(
     sender: UnboundedSender<Result<JsValue, JsValue>>,
-) -> Closure<dyn FnMut(Event)> {
+) -> Closure<dyn FnMut(Event) -> crate::Result<()>> {
     Closure::once(move |event: Event| {
-        let target = event.target().unwrap_throw();
+        let target = event.target().ok_or(Error::EventTargetNotFound)?;
         let request: &IdbRequest = AsRef::<JsValue>::as_ref(&target).unchecked_ref();
 
         sender
             .send(request.result())
-            .map_err(|_| Error::AsyncChannelError)
-            .unwrap_throw();
+            .map_err(|_| Error::AsyncChannelError)?;
+
+        Ok(())
     })
 }
 
 fn get_error_closure(
     sender: UnboundedSender<Result<JsValue, JsValue>>,
-) -> Closure<dyn FnMut(Event)> {
+) -> Closure<dyn FnMut(Event) -> crate::Result<()>> {
     Closure::once(move |event: Event| {
-        let target = event.target().unwrap_throw();
+        let target = event.target().ok_or(Error::EventTargetNotFound)?;
         let request: &IdbRequest = AsRef::<JsValue>::as_ref(&target).unchecked_ref();
 
         let error: Result<JsValue, JsValue> = match request.error() {
@@ -204,10 +214,9 @@ fn get_error_closure(
             Err(error) => Err(error),
         };
 
-        sender
-            .send(error)
-            .map_err(|_| Error::AsyncChannelError)
-            .unwrap_throw();
+        sender.send(error).map_err(|_| Error::AsyncChannelError)?;
+
+        Ok(())
     })
 }
 
@@ -217,15 +226,14 @@ fn get_cursor_closure(
     advancing: Arc<AtomicBool>,
     limit: Option<u32>,
     offset: u32,
-) -> Closure<dyn FnMut(Event)> {
+) -> Closure<dyn FnMut(Event) -> crate::Result<()>> {
     Closure::wrap(Box::new(move |event| {
         sender
             .send(cursor_closure_inner(
                 event, &seen, &advancing, limit, offset,
             ))
             .map_err(|_| Error::AsyncChannelError)
-            .unwrap_throw();
-    }) as Box<dyn FnMut(Event)>)
+    }) as Box<dyn FnMut(Event) -> crate::Result<()>>)
 }
 
 fn cursor_closure_inner(
@@ -281,6 +289,6 @@ fn cursor_closure_inner(
     }
 }
 
-fn get_callback(closure: &Closure<dyn FnMut(Event)>) -> &Function {
+fn get_callback(closure: &Closure<dyn FnMut(Event) -> crate::Result<()>>) -> &Function {
     closure.as_ref().unchecked_ref()
 }
