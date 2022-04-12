@@ -100,6 +100,7 @@
 mod direction;
 mod error;
 mod index;
+mod key_path;
 mod key_range;
 mod object_store;
 mod request;
