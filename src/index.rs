@@ -1,13 +1,11 @@
-use js_sys::Array;
-use wasm_bindgen::JsValue;
 use web_sys::{IdbIndexParameters, IdbObjectStore};
 
-use crate::{Error, Result};
+use crate::{key_path::KeyPath, Error, Result};
 
 /// An index builder.
 pub struct Index {
     pub(crate) name: String,
-    pub(crate) key_path: Vec<String>,
+    pub(crate) key_path: KeyPath,
     pub(crate) unique: Option<bool>,
     pub(crate) multi_entry: Option<bool>,
 }
@@ -17,7 +15,7 @@ impl Index {
     pub fn new(name: &str, key_path: &str) -> Self {
         Self {
             name: name.to_owned(),
-            key_path: vec![key_path.to_owned()],
+            key_path: KeyPath::new_str(key_path),
             unique: None,
             multi_entry: None,
         }
@@ -27,7 +25,7 @@ impl Index {
     pub fn new_array<'a>(name: &str, key_path_array: impl IntoIterator<Item = &'a str>) -> Self {
         Self {
             name: name.to_owned(),
-            key_path: key_path_array.into_iter().map(ToOwned::to_owned).collect(),
+            key_path: KeyPath::new_array(key_path_array),
             unique: None,
             multi_entry: None,
         }
@@ -62,12 +60,7 @@ impl Index {
             object_store
                 .create_index_with_str_sequence_and_optional_parameters(
                     &self.name,
-                    &self
-                        .key_path
-                        .into_iter()
-                        .map(|s| JsValue::from_str(&s))
-                        .collect::<Array>()
-                        .into(),
+                    &self.key_path.into(),
                     &params,
                 )
                 .map_err(Error::IndexCreationFailed)?;
