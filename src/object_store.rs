@@ -1,4 +1,4 @@
-use std::{collections::HashSet, string::ToString};
+use std::collections::HashSet;
 
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
@@ -31,12 +31,9 @@ impl ObjectStore {
         self
     }
 
-    /// Specify compound key path for the object store
-    pub fn key_path_array<S: ToString>(
-        mut self,
-        key_path_array: impl IntoIterator<Item = S>,
-    ) -> Self {
-        self.key_path = key_path_array.into_iter().map(|s| s.to_string()).collect();
+    /// Specify key path array for the object store
+    pub fn key_path_array<'a>(mut self, key_path_array: impl IntoIterator<Item = &'a str>) -> Self {
+        self.key_path = key_path_array.into_iter().map(ToOwned::to_owned).collect();
         self
     }
 
@@ -107,7 +104,9 @@ impl ObjectStore {
         let mut indexes_to_remove = Vec::new();
 
         for index in 0..db_index_names.length() {
-            let db_index_name = db_index_names.get(index).unwrap_throw();
+            let db_index_name = db_index_names.get(index).ok_or_else(|| {
+                Error::ObjectStoreCreationFailed("unable to get index name".into())
+            })?;
 
             if index_names.contains(&db_index_name) {
                 index_names.remove(&db_index_name);
@@ -117,7 +116,9 @@ impl ObjectStore {
         }
 
         for index_name in indexes_to_remove {
-            object_store.delete_index(&index_name).unwrap_throw();
+            object_store
+                .delete_index(&index_name)
+                .map_err(Error::ObjectStoreCreationFailed)?;
         }
 
         Ok(())

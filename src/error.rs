@@ -7,6 +7,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Error type for `rexie` crate
 #[derive(Debug, Error, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Error when receiving message from async channel
     #[error("error when receiving message from async channel")]
@@ -52,6 +53,10 @@ pub enum Error {
     #[error("failed to execute indexed db request: {}", js_error_display(.0))]
     IndexedDbRequestError(JsValue),
 
+    /// Failed to execute indexed db upgrade
+    #[error("failed to execute indexed db upgrade: {}", js_error_display(.0))]
+    IndexedDbUpgradeFailed(JsValue),
+
     /// Key range error
     #[error("key range error: {}", js_error_display(.0))]
     KeyRangeError(JsValue),
@@ -63,6 +68,10 @@ pub enum Error {
     /// Failed to open object store
     #[error("failed to open object store: {}", js_error_display(.0))]
     ObjectStoreOpenFailed(JsValue),
+
+    /// Failed to commit indexed db transaction
+    #[error("failed to commit indexed db transaction: {}", js_error_display(.0))]
+    TransactionCommitFailed(JsValue),
 
     /// Failed to execute indexed db transaction
     #[error("failed to execute db transaction: {}", js_error_display(.0))]
@@ -99,9 +108,11 @@ impl From<Error> for JsValue {
             Error::IndexedDbNotFound => "IndexedDbNotFound".into(),
             Error::IndexedDbNotSupported(js_value) => js_value,
             Error::IndexedDbOpenFailed(js_value) => js_value,
+            Error::IndexedDbUpgradeFailed(js_value) => js_value,
             Error::KeyRangeError(js_value) => js_value,
             Error::ObjectStoreCreationFailed(js_value) => js_value,
             Error::ObjectStoreOpenFailed(js_value) => js_value,
+            Error::TransactionCommitFailed(js_value) => js_value,
             Error::TransactionExecutionFailed(js_value) => js_value,
             Error::TransactionOpenFailed(js_value) => js_value,
             Error::WindowNotFound => "WindowNotFound".into(),

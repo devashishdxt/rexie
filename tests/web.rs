@@ -59,7 +59,7 @@ async fn create_db() -> Rexie {
         .add_object_store(
             ObjectStore::new("invoices")
                 .key_path_array(["id", "year"])
-                .add_index(Index::new_compound("agent_customer", ["agent", "customer"])),
+                .add_index(Index::new_array("agent_customer", ["agent", "customer"])),
         )
         .build()
         .await;
@@ -100,7 +100,7 @@ async fn basic_test_db(rexie: &Rexie) {
     assert!(email_index.unique());
     assert!(!email_index.multi_entry());
 
-    assert!(transaction.done().await.is_ok());
+    assert!(transaction.commit().await.is_ok());
 }
 
 /// Closes and deletes the database
@@ -122,7 +122,7 @@ async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
     let employee = serde_wasm_bindgen::to_value(&employee).unwrap();
     let employee_id = employees.add(&employee, None).await?;
 
-    transaction.done().await?;
+    transaction.commit().await?;
     Ok(num_traits::cast(employee_id.as_f64().unwrap()).unwrap())
 }
 
@@ -213,7 +213,7 @@ async fn add_invoice(
     let invoice = serde_wasm_bindgen::to_value(&invoice).unwrap();
     invoices.add(&invoice, None).await?;
 
-    transaction.done().await?;
+    transaction.commit().await?;
     Ok(())
 }
 
