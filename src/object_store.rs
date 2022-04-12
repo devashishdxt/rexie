@@ -73,23 +73,17 @@ impl ObjectStore {
                 params.auto_increment(auto_increment);
             }
 
-            match self.key_path.len() {
-                0 => {
-                    params.key_path(None);
-                }
-                1 => {
-                    params.key_path(Some(&(&self.key_path[0]).into()));
-                }
-                _ => {
-                    params.key_path(Some(
-                        &self
-                            .key_path
-                            .into_iter()
-                            .map(|key| JsValue::from_str(&key))
-                            .collect::<Array>()
-                            .into(),
-                    ));
-                }
+            if self.key_path.is_empty() {
+                params.key_path(None);
+            } else {
+                params.key_path(Some(
+                    &self
+                        .key_path
+                        .iter()
+                        .map(|key| JsValue::from_str(key))
+                        .collect::<Array>()
+                        .into(),
+                ));
             }
 
             idb.create_object_store_with_optional_parameters(&self.name, &params)
