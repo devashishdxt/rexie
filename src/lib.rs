@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rexie = "0.3"
+//! rexie = "0.4"
 //! ```
 //!
 //! ## Example
