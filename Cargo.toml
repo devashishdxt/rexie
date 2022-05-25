@@ -22,9 +22,9 @@ default = ["console_error_panic_hook"]
 [dependencies]
 console_error_panic_hook = { version = "0.1.7", optional = true }
 js-sys = "0.3.57"
-num-traits = { version = "0.2.14", default-features = false }
-thiserror = "1.0.30"
-tokio = { version = "1.17.0", default-features = false, features = ["sync"] }
+num-traits = { version = "0.2.15", default-features = false }
+thiserror = "1.0.31"
+tokio = { version = "1.18.2", default-features = false, features = ["sync"] }
 wasm-bindgen = "0.2.80"
 web-sys = { version = "0.3.57", features = [
     "console",
@@ -51,9 +51,9 @@ web-sys = { version = "0.3.57", features = [
 wee_alloc = { version = "0.4.5", optional = true }
 
 [dev-dependencies]
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.79"
-serde-wasm-bindgen = "0.4.2"
+serde = { version = "1.0.137", features = ["derive"] }
+serde_json = "1.0.81"
+serde-wasm-bindgen = "0.4.3"
 wasm-bindgen-test = "0.3.30"
 
 [profile.release]
