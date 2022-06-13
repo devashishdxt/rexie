@@ -39,7 +39,7 @@ pub enum Error {
 
     /// Indexed db not found
     #[error("indexed db is none")]
-    IndexedDbNotFound,
+    IndexedDbNotFound(JsValue),
 
     /// Indexed db not supported
     #[error("indexed db not supported: {}", js_error_display(.0))]
@@ -105,7 +105,7 @@ impl From<Error> for JsValue {
             Error::EventTargetNotFound => "EventTargetNotFound".into(),
             Error::IndexCreationFailed(js_value) => js_value,
             Error::IndexOpenFailed(js_value) => js_value,
-            Error::IndexedDbNotFound => "IndexedDbNotFound".into(),
+            Error::IndexedDbNotFound(js_value) => js_value,
             Error::IndexedDbNotSupported(js_value) => js_value,
             Error::IndexedDbOpenFailed(js_value) => js_value,
             Error::IndexedDbUpgradeFailed(js_value) => js_value,

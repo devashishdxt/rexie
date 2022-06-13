@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
+use js_sys::Reflect;
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{Event, IdbDatabase, IdbFactory, IdbOpenDbRequest, Window};
+use web_sys::{Event, IdbDatabase, IdbFactory, IdbOpenDbRequest};
 
 use crate::{request::wait_request, utils::set_panic_hook, Error, ObjectStore, Result, Rexie};
 
@@ -60,17 +61,11 @@ impl RexieBuilder {
     }
 }
 
-fn get_window() -> Result<Window> {
-    web_sys::window().ok_or(Error::WindowNotFound)
-}
-
 fn get_idb_factory() -> Result<IdbFactory> {
-    let window = get_window()?;
-
-    window
-        .indexed_db()
-        .map_err(Error::IndexedDbNotSupported)?
-        .ok_or(Error::IndexedDbNotFound)
+    Reflect::get(&js_sys::global(), &JsValue::from("indexedDB"))
+        .map_err(Error::IndexedDbNotFound)?
+        .dyn_into()
+        .map_err(Error::IndexedDbNotFound)
 }
 
 fn get_idb_open_request(name: &str, version: Option<u32>) -> Result<IdbOpenDbRequest> {
