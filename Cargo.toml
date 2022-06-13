@@ -24,10 +24,9 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 js-sys = "0.3.57"
 num-traits = { version = "0.2.15", default-features = false }
 thiserror = "1.0.31"
-tokio = { version = "1.18.2", default-features = false, features = ["sync"] }
+tokio = { version = "1.19.2", default-features = false, features = ["sync"] }
 wasm-bindgen = "0.2.80"
 web-sys = { version = "0.3.57", features = [
-    "console",
     "DomException",
     "DomStringList",
     "Event",
@@ -46,7 +45,6 @@ web-sys = { version = "0.3.57", features = [
     "IdbTransaction",
     "IdbTransactionMode",
     "StorageType",
-    "Window",
 ] }
 wee_alloc = { version = "0.4.5", optional = true }
 
