@@ -17,34 +17,36 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["console_error_panic_hook"]
+default = ["console_error_panic_hook", "js"]
+js = ["wasm-bindgen-futures"]
 
 [dependencies]
 console_error_panic_hook = { version = "0.1.7", optional = true }
-js-sys = "0.3.57"
+js-sys = "0.3.58"
 num-traits = { version = "0.2.15", default-features = false }
 thiserror = "1.0.31"
 tokio = { version = "1.19.2", default-features = false, features = ["sync"] }
-wasm-bindgen = "0.2.80"
-web-sys = { version = "0.3.57", features = [
-    "DomException",
-    "DomStringList",
-    "Event",
-    "IdbCursorWithValue",
-    "IdbCursorDirection",
-    "IdbDatabase",
-    "IdbFactory",
-    "IdbIndex",
-    "IdbIndexParameters",
-    "IdbKeyRange",
-    "IdbObjectStore",
-    "IdbObjectStoreParameters",
-    "IdbOpenDbRequest",
-    "IdbOpenDbOptions",
-    "IdbRequest",
-    "IdbTransaction",
-    "IdbTransactionMode",
-    "StorageType",
+wasm-bindgen = "0.2.81"
+wasm-bindgen-futures = { version = "0.4.31", optional = true }
+web-sys = { version = "0.3.58", features = [
+  "DomException",
+  "DomStringList",
+  "Event",
+  "IdbCursorWithValue",
+  "IdbCursorDirection",
+  "IdbDatabase",
+  "IdbFactory",
+  "IdbIndex",
+  "IdbIndexParameters",
+  "IdbKeyRange",
+  "IdbObjectStore",
+  "IdbObjectStoreParameters",
+  "IdbOpenDbRequest",
+  "IdbOpenDbOptions",
+  "IdbRequest",
+  "IdbTransaction",
+  "IdbTransactionMode",
+  "StorageType",
 ] }
 wee_alloc = { version = "0.4.5", optional = true }
 
@@ -52,7 +54,7 @@ wee_alloc = { version = "0.4.5", optional = true }
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
 serde-wasm-bindgen = "0.4.3"
-wasm-bindgen-test = "0.3.30"
+wasm-bindgen-test = "0.3.31"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
