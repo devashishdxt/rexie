@@ -88,10 +88,6 @@ pub enum Error {
     /// Unexpected JS type
     #[error("unexpected js type")]
     UnexpectedJsType,
-
-    /// window object is none
-    #[error("window object is none")]
-    WindowNotFound,
 }
 
 fn js_error_display(option: &JsValue) -> String {
@@ -115,7 +111,6 @@ impl From<Error> for JsValue {
             Error::TransactionCommitFailed(js_value) => js_value,
             Error::TransactionExecutionFailed(js_value) => js_value,
             Error::TransactionOpenFailed(js_value) => js_value,
-            Error::WindowNotFound => "WindowNotFound".into(),
             Error::DomExceptionError(js_value) => js_value,
             Error::DomExceptionNotFound => "DomExceptionNotFound".into(),
             Error::IndexedDbDeleteFailed(js_value) => js_value,
