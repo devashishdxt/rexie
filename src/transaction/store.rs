@@ -64,19 +64,27 @@ impl Store {
 
     /// Gets a value from the store with given key
     /// MDN Reference: [IDBObjectStore/get](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/get)
-    pub async fn get(&self, key: &JsValue) -> Result<JsValue> {
+    pub async fn get(&self, key: &JsValue) -> Result<Option<JsValue>> {
         let request = self
             .idb_store
             .get(key)
             .map_err(Error::IndexedDbRequestError)?;
 
-        wait_request(request, Error::IndexedDbRequestError).await
+        let response = wait_request(request, Error::IndexedDbRequestError).await?;
+        if response.is_undefined() || response.is_null() {
+            Ok(None)
+        } else {
+            Ok(Some(response))
+        }
     }
 
     /// Checks if a given key exists within the store
     /// MDN Reference: [IDBObjectStore/getKey](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/getKey)
     pub async fn key_exists(&self, key: &JsValue) -> Result<bool> {
-        let request = self.idb_store.get_key(key).map_err(Error::IndexedDbRequestError)?;
+        let request = self
+            .idb_store
+            .get_key(key)
+            .map_err(Error::IndexedDbRequestError)?;
         let result = wait_request(request, Error::IndexedDbRequestError).await?;
         Ok(result.as_bool().unwrap_or_default())
     }
@@ -84,13 +92,22 @@ impl Store {
     /// Retrieves record keys for all objects in the object store matching the specified
     /// parameter or all objects in the store if no parameters are given.
     /// MDN Reference: [IDBStore/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBStore/getAllKeys)
-    pub async fn all_keys(&self, key_range: Option<&KeyRange>, limit: Option<u32>) -> Result<JsValue> {
+    pub async fn all_keys(
+        &self,
+        key_range: Option<&KeyRange>,
+        limit: Option<u32>,
+    ) -> Result<JsValue> {
         let request = match (key_range, limit) {
             (None, None) => self.idb_store.get_all_keys(),
-            (None, Some(limit)) => self.idb_store.get_all_keys_with_key_and_limit(&JsValue::UNDEFINED, limit),
+            (None, Some(limit)) => self
+                .idb_store
+                .get_all_keys_with_key_and_limit(&JsValue::UNDEFINED, limit),
             (Some(key_range), None) => self.idb_store.get_all_keys_with_key(key_range.as_ref()),
-            (Some(key_range), Some(limit)) => self.idb_store.get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
-        }.map_err(Error::IndexedDbRequestError)?;
+            (Some(key_range), Some(limit)) => self
+                .idb_store
+                .get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
+        }
+        .map_err(Error::IndexedDbRequestError)?;
 
         wait_request(request, Error::IndexedDbRequestError).await
     }
