@@ -42,6 +42,19 @@ impl StoreIndex {
         wait_request(request, Error::IndexedDbRequestError).await
     }
 
+    /// retrieves the primary keys of all objects inside the index
+    /// See: [MDN:IDBIndex/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBIndex/getAllKeys)
+    pub async fn all_keys(&self, key_range: Option<&KeyRange>, limit: Option<u32>) -> Result<JsValue> {
+        let request = match (key_range, limit) {
+            (None, None) => self.idb_index.get_all_keys(),
+            (None, Some(limit)) => self.idb_index.get_all_keys_with_key_and_limit(&JsValue::UNDEFINED, limit),
+            (Some(key_range), None) => self.idb_index.get_all_keys_with_key(key_range.as_ref()),
+            (Some(key_range), Some(limit)) => self.idb_index.get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
+        }.map_err(Error::IndexedDbRequestError)?;
+
+        wait_request(request, Error::IndexedDbRequestError).await
+    }
+
     /// Gets all key-value pairs from the store with given key range, limit, offset and direction
     pub async fn get_all(
         &self,
