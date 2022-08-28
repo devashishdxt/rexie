@@ -92,7 +92,7 @@ impl Store {
     /// Retrieves record keys for all objects in the object store matching the specified
     /// parameter or all objects in the store if no parameters are given.
     /// MDN Reference: [IDBStore/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBStore/getAllKeys)
-    pub async fn all_keys(
+    pub async fn get_all_keys(
         &self,
         key_range: Option<&KeyRange>,
         limit: Option<u32>,

@@ -49,7 +49,7 @@ impl StoreIndex {
 
     /// retrieves the primary keys of all objects inside the index
     /// See: [MDN:IDBIndex/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBIndex/getAllKeys)
-    pub async fn all_keys(
+    pub async fn get_all_keys(
         &self,
         key_range: Option<&KeyRange>,
         limit: Option<u32>,
