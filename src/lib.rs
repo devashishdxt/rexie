@@ -88,7 +88,7 @@
 //!     let employees = transaction.store("employees")?;
 //!     
 //!     // Get the employee
-//!     let employee = employees.get(&id.into()).await?;
+//!     let employee = employees.get(&id.into()).await?.unwrap();
 //!
 //!     // Convert it to `serde_json::Value` from `JsValue`
 //!     let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();
