@@ -5,6 +5,7 @@ use web_sys::IdbDatabase;
 use crate::{Error, Result, RexieBuilder, Transaction, TransactionMode};
 
 /// Rexie database (wrapper on top of indexed db)
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rexie {
     pub(crate) db: IdbDatabase,
 }
