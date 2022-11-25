@@ -90,6 +90,23 @@ impl Store {
         wait_cursor_request(request, limit, offset, Error::IndexedDbRequestError).await
     }
 
+    /// Retrieves record keys for all objects in the object store.
+    pub async fn get_all_keys(
+        &self,
+        key_range: Option<&KeyRange>,
+        limit: Option<u32>,
+    ) -> Result<JsValue> {
+        let request = match (key_range, limit) {
+            (Some(key_range), None) => self.idb_store.get_all_keys_with_key(key_range.as_ref()),
+            (Some(key_range), Some(limit)) => self
+                .idb_store
+                .get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
+            _ => self.idb_store.get_all_keys(),
+        }
+        .map_err(Error::IndexedDbRequestError)?;
+        wait_request(request, Error::IndexedDbRequestError).await
+    }
+
     /// Adds a key value pair in the store. Note that the key can be `None` if store has auto increment enabled.
     pub async fn add(&self, value: &JsValue, key: Option<&JsValue>) -> Result<JsValue> {
         let request = match key {
