@@ -4,7 +4,7 @@ use js_sys::Reflect;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Event, IdbDatabase, IdbFactory, IdbOpenDbRequest};
 
-use crate::{request::wait_request, utils::set_panic_hook, Error, ObjectStore, Result, Rexie};
+use crate::{request::wait_request, Error, ObjectStore, Result, Rexie};
 
 /// Builder for creating a new database.
 pub struct RexieBuilder {
@@ -16,8 +16,6 @@ pub struct RexieBuilder {
 impl RexieBuilder {
     /// Creates a new database builder with given name.
     pub fn new(name: &str) -> Self {
-        set_panic_hook();
-
         Self {
             name: name.to_owned(),
             version: None,
