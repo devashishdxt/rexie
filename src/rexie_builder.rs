@@ -103,8 +103,11 @@ fn upgrade_handler(event: Event, object_stores: Vec<ObjectStore>) -> Result<()> 
         .map_err(Error::IndexedDbNotSupported)?
         .unchecked_into();
 
+    let pre_migration_db_store_names = idb.object_store_names();
     for object_store in object_stores {
-        object_store.create(&idb_open_request, &idb)?;
+        if !pre_migration_db_store_names.contains(&object_store.name) {
+            object_store.create(&idb_open_request, &idb)?;
+        }
     }
 
     let db_store_names = idb.object_store_names();
