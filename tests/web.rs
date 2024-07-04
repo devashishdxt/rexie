@@ -4,7 +4,7 @@
 
 extern crate wasm_bindgen_test;
 
-use std::{assert, assert_eq, option::Option, vec};
+use std::{assert, assert_eq, option::Option};
 
 use js_sys::Array;
 use rexie::{Direction, Index, KeyPath, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
