@@ -1,6 +1,6 @@
 [package]
 name = "rexie"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Devashish Dixit <devashishdxt@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Rexie is an easy-to-use, futures based wrapper around IndexedDB that compiles to webassembly"
