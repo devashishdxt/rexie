@@ -35,7 +35,8 @@ impl RexieBuilder {
         Ok(Rexie { database })
     }
 
-    /// Delete the database.
+    /// Delete the database. Note that the future returned by this function doesn't reach completion until the database
+    /// is closed across all tabs in the browser.
     pub async fn delete(self) -> Result<()> {
         let factory = Factory::new()?;
         factory.delete(&self.name)?.await.map_err(Into::into)
