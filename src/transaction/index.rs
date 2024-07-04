@@ -1,7 +1,7 @@
 use idb::Index;
 use wasm_bindgen::JsValue;
 
-use crate::{Direction, Error, KeyRange, Result};
+use crate::{Direction, KeyRange, Result};
 
 /// Index of an object store.
 pub struct StoreIndex {
@@ -62,49 +62,60 @@ impl StoreIndex {
         offset: Option<u32>,
         direction: Option<Direction>,
     ) -> Result<Vec<(JsValue, JsValue)>> {
-        let mut cursor = self
+        let cursor = self
             .index
             .open_cursor(key_range.map(Into::into), direction)?
-            .await?
-            .ok_or(Error::CursorNotFound)?
-            .into_managed();
+            .await?;
 
-        let mut result = Vec::new();
+        match cursor {
+            None => Ok(Vec::new()),
+            Some(cursor) => {
+                let mut cursor = cursor.into_managed();
 
-        match limit {
-            Some(limit) => {
-                if let Some(offset) = offset {
-                    cursor.advance(offset).await?;
-                }
+                let mut result = Vec::new();
 
-                for _ in 0..limit {
-                    let key = cursor.key()?;
-                    let value = cursor.value()?;
+                match limit {
+                    Some(limit) => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
 
-                    match (key, value) {
-                        (Some(key), Some(value)) => result.push((key, value)),
-                        _ => break,
+                        for _ in 0..limit {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                    None => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
+
+                        loop {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
                     }
                 }
-            }
-            None => {
-                if let Some(offset) = offset {
-                    cursor.advance(offset).await?;
-                }
 
-                loop {
-                    let key = cursor.key()?;
-                    let value = cursor.value()?;
-
-                    match (key, value) {
-                        (Some(key), Some(value)) => result.push((key, value)),
-                        _ => break,
-                    }
-                }
+                Ok(result)
             }
         }
-
-        Ok(result)
     }
 
     /// Counts the number of key value pairs in the store

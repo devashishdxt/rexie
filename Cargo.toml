@@ -1,6 +1,6 @@
 [package]
 name = "rexie"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Devashish Dixit <devashishdxt@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Rexie is an easy-to-use, futures based wrapper around IndexedDB that compiles to webassembly"
@@ -9,7 +9,13 @@ repository = "https://github.com/devashishdxt/rexie"
 categories = ["asynchronous", "database", "wasm", "web-programming"]
 keywords = ["wasm", "indexeddb", "futures", "idb", "indexed"]
 readme = "README.md"
-include = ["Cargo.toml", "src/**/*.rs", "tests/**/*.rs", "README.md"]
+include = [
+    "Cargo.toml",
+    "src/**/*.rs",
+    "tests/**/*.rs",
+    "README.md",
+    "LICENSE_*",
+]
 edition = "2021"
 
 [lib]
@@ -17,7 +23,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-idb = { version = "0.6.1", features = ["builder"] }
+idb = { version = "0.6.2", features = ["builder"] }
 thiserror = "1.0.61"
 wasm-bindgen = "0.2.92"
 

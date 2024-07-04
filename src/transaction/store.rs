@@ -1,7 +1,7 @@
 use idb::ObjectStore;
 use wasm_bindgen::JsValue;
 
-use crate::{Direction, Error, KeyPath, KeyRange, Result, StoreIndex};
+use crate::{Direction, KeyPath, KeyRange, Result, StoreIndex};
 
 /// An object store.
 pub struct Store {
@@ -90,49 +90,60 @@ impl Store {
         offset: Option<u32>,
         direction: Option<Direction>,
     ) -> Result<Vec<(JsValue, JsValue)>> {
-        let mut cursor = self
+        let cursor = self
             .object_store
             .open_cursor(key_range.map(Into::into), direction)?
-            .await?
-            .ok_or(Error::CursorNotFound)?
-            .into_managed();
+            .await?;
 
-        let mut result = Vec::new();
+        match cursor {
+            None => Ok(Vec::new()),
+            Some(cursor) => {
+                let mut cursor = cursor.into_managed();
 
-        match limit {
-            Some(limit) => {
-                if let Some(offset) = offset {
-                    cursor.advance(offset).await?;
-                }
+                let mut result = Vec::new();
 
-                for _ in 0..limit {
-                    let key = cursor.key()?;
-                    let value = cursor.value()?;
+                match limit {
+                    Some(limit) => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
 
-                    match (key, value) {
-                        (Some(key), Some(value)) => result.push((key, value)),
-                        _ => break,
+                        for _ in 0..limit {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                    None => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
+
+                        loop {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
                     }
                 }
-            }
-            None => {
-                if let Some(offset) = offset {
-                    cursor.advance(offset).await?;
-                }
 
-                loop {
-                    let key = cursor.key()?;
-                    let value = cursor.value()?;
-
-                    match (key, value) {
-                        (Some(key), Some(value)) => result.push((key, value)),
-                        _ => break,
-                    }
-                }
+                Ok(result)
             }
         }
-
-        Ok(result)
     }
 
     /// Adds a key value pair in the store. Note that the key can be `None` if store has auto increment enabled.

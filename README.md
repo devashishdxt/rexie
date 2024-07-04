@@ -8,12 +8,12 @@ To use Rexie, you need to add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rexie = "0.4"
+rexie = "0.6"
 ```
 
 ### Example
 
-To create a new database, you can use the `Rexie::builder` method:
+To create a new database, you can use the [`Rexie::builder`] method:
 
 ```rust
 use rexie::*;
@@ -39,14 +39,14 @@ async fn build_database() -> Result<Rexie> {
 
     // Check basic details of the database
     assert_eq!(rexie.name(), "test");
-    assert_eq!(rexie.version(), 1.0);
+    assert_eq!(rexie.version(), Ok(1));
     assert_eq!(rexie.store_names(), vec!["employees"]);
 
     Ok(rexie)
 }
 ```
 
-To add an employee, you can use the `Store::add` method after creating a `Transaction`:
+To add an employee, you can use the [`Store::add`] method after creating a [`Transaction`]:
 
 ```rust
 use rexie::*;
@@ -77,7 +77,7 @@ async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
 }
 ```
 
-To get an employee, you can use the `Store::get` method after creating a `Transaction`:
+To get an employee, you can use the [`Store::get`] method after creating a [`Transaction`]:
 
 ```rust
 use rexie::*;
@@ -90,7 +90,7 @@ async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<serde_json::Value
     let employees = transaction.store("employees")?;
 
     // Get the employee
-    let employee = employees.get(&id.into()).await?;
+    let employee = employees.get(id.into()).await?.unwrap();
 
     // Convert it to `serde_json::Value` from `JsValue`
     let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();

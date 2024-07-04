@@ -7,9 +7,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
-    /// Couldn't open a cursor
-    #[error("couldn't open a cursor")]
-    CursorNotFound,
     /// Indexed DB error
     #[error("idb error")]
     IdbError(#[from] idb::Error),
