@@ -97,24 +97,22 @@
 //!     Ok(employee)
 //! }
 //! ```
-mod direction;
 mod error;
 mod index;
-mod key_path;
-mod key_range;
 mod object_store;
-mod request;
 mod rexie;
 mod rexie_builder;
 mod transaction;
 
+pub use idb::{
+    CursorDirection as Direction, KeyPath, KeyRange, TransactionMode, TransactionResult,
+};
+
 pub use self::{
-    direction::Direction,
     error::{Error, Result},
     index::Index,
-    key_range::KeyRange,
     object_store::ObjectStore,
     rexie::Rexie,
     rexie_builder::RexieBuilder,
-    transaction::{Store, StoreIndex, Transaction, TransactionMode},
+    transaction::{Store, StoreIndex, Transaction},
 };

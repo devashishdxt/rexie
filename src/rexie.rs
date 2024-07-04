@@ -1,13 +1,11 @@
-use js_sys::Array;
-use wasm_bindgen::prelude::*;
-use web_sys::IdbDatabase;
+use idb::Database;
 
-use crate::{Error, Result, RexieBuilder, Transaction, TransactionMode};
+use crate::{Result, RexieBuilder, Transaction, TransactionMode};
 
 /// Rexie database (wrapper on top of indexed db)
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Rexie {
-    pub(crate) db: IdbDatabase,
+    pub(crate) database: Database,
 }
 
 impl Rexie {
@@ -18,27 +16,17 @@ impl Rexie {
 
     /// Returns name of the database
     pub fn name(&self) -> String {
-        self.db.name()
+        self.database.name()
     }
 
     /// Returns version of the database
-    pub fn version(&self) -> f64 {
-        self.db.version()
+    pub fn version(&self) -> Result<u32> {
+        self.database.version().map_err(Into::into)
     }
 
     /// Returns names of all stores in the database
     pub fn store_names(&self) -> Vec<String> {
-        let list = self.db.object_store_names();
-
-        let mut result = Vec::new();
-
-        for index in 0..list.length() {
-            if let Some(s) = list.get(index) {
-                result.push(s);
-            }
-        }
-
-        result
+        self.database.store_names()
     }
 
     /// Creates a new transaction on the database
@@ -47,22 +35,13 @@ impl Rexie {
         store_names: &[T],
         mode: TransactionMode,
     ) -> Result<Transaction> {
-        let store_names: Array = store_names
-            .iter()
-            .map(|s| JsValue::from(s.as_ref()))
-            .collect();
-
-        let idb_transaction = self
-            .db
-            .transaction_with_str_sequence_and_mode(&store_names, mode.into())
-            .map_err(Error::TransactionOpenFailed)?;
-
-        Ok(Transaction { idb_transaction })
+        let transaction = self.database.transaction(store_names, mode)?;
+        Ok(Transaction { transaction })
     }
 
     /// Closes the database
     pub fn close(self) {
-        self.db.close();
+        self.database.close();
     }
 
     /// Deletes a database
