@@ -17,17 +17,20 @@ impl Store {
         Self { idb_store }
     }
 
-    /// Returns weather the store has auto increment enabled
+    /// Returns whether the store has auto increment enabled
+    /// MDN Reference: [IDBObjectStore.autoIncrement](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/autoIncrement)
     pub fn auto_increment(&self) -> bool {
         self.idb_store.auto_increment()
     }
 
     /// Returns the name of the store
+    /// MDN Reference: [IDBObjectStore.name](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/name)
     pub fn name(&self) -> String {
         self.idb_store.name()
     }
 
     /// Returns the key path of the store
+    /// MDN Reference: [IDBObjectStore.keyPath](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/keyPath)
     pub fn key_path(&self) -> Result<Option<String>> {
         self.idb_store
             .key_path()
@@ -36,12 +39,13 @@ impl Store {
     }
 
     /// Returns all the index names of the store
+    /// MDN Reference: [IDBObjectStore/indexNames](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/indexNames)
     pub fn index_names(&self) -> Vec<String> {
         let list = self.idb_store.index_names();
+        let list_len = list.length();
+        let mut result = Vec::with_capacity(list_len as usize);
 
-        let mut result = Vec::new();
-
-        for index in 0..list.length() {
+        for index in 0..list_len {
             if let Some(s) = list.get(index) {
                 result.push(s);
             }
@@ -51,6 +55,7 @@ impl Store {
     }
 
     /// Returns index of the store with given name
+    /// MDN Reference: [IDBObjectStore/index](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/index)
     pub fn index(&self, name: &str) -> Result<StoreIndex> {
         let idb_index = self.idb_store.index(name).map_err(Error::IndexOpenFailed)?;
 
@@ -58,11 +63,51 @@ impl Store {
     }
 
     /// Gets a value from the store with given key
-    pub async fn get(&self, key: &JsValue) -> Result<JsValue> {
+    /// MDN Reference: [IDBObjectStore/get](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/get)
+    pub async fn get(&self, key: &JsValue) -> Result<Option<JsValue>> {
         let request = self
             .idb_store
             .get(key)
             .map_err(Error::IndexedDbRequestError)?;
+
+        let response = wait_request(request, Error::IndexedDbRequestError).await?;
+        if response.is_undefined() || response.is_null() {
+            Ok(None)
+        } else {
+            Ok(Some(response))
+        }
+    }
+
+    /// Checks if a given key exists within the store
+    /// MDN Reference: [IDBObjectStore/getKey](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/getKey)
+    pub async fn key_exists(&self, key: &JsValue) -> Result<bool> {
+        let request = self
+            .idb_store
+            .get_key(key)
+            .map_err(Error::IndexedDbRequestError)?;
+        let result = wait_request(request, Error::IndexedDbRequestError).await?;
+        Ok(result.as_bool().unwrap_or_default())
+    }
+
+    /// Retrieves record keys for all objects in the object store matching the specified
+    /// parameter or all objects in the store if no parameters are given.
+    /// MDN Reference: [IDBStore/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBStore/getAllKeys)
+    pub async fn get_all_keys(
+        &self,
+        key_range: Option<&KeyRange>,
+        limit: Option<u32>,
+    ) -> Result<JsValue> {
+        let request = match (key_range, limit) {
+            (None, None) => self.idb_store.get_all_keys(),
+            (None, Some(limit)) => self
+                .idb_store
+                .get_all_keys_with_key_and_limit(&JsValue::UNDEFINED, limit),
+            (Some(key_range), None) => self.idb_store.get_all_keys_with_key(key_range.as_ref()),
+            (Some(key_range), Some(limit)) => self
+                .idb_store
+                .get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
+        }
+        .map_err(Error::IndexedDbRequestError)?;
 
         wait_request(request, Error::IndexedDbRequestError).await
     }

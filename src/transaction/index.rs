@@ -33,11 +33,38 @@ impl StoreIndex {
     }
 
     /// Gets a value from the store with given key
-    pub async fn get(&self, key: &JsValue) -> Result<JsValue> {
+    pub async fn get(&self, key: &JsValue) -> Result<Option<JsValue>> {
         let request = self
             .idb_index
             .get(key)
             .map_err(Error::IndexedDbRequestError)?;
+
+        let response = wait_request(request, Error::IndexedDbRequestError).await?;
+        if response.is_undefined() || response.is_null() {
+            Ok(None)
+        } else {
+            Ok(Some(response))
+        }
+    }
+
+    /// retrieves the primary keys of all objects inside the index
+    /// See: [MDN:IDBIndex/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBIndex/getAllKeys)
+    pub async fn get_all_keys(
+        &self,
+        key_range: Option<&KeyRange>,
+        limit: Option<u32>,
+    ) -> Result<JsValue> {
+        let request = match (key_range, limit) {
+            (None, None) => self.idb_index.get_all_keys(),
+            (None, Some(limit)) => self
+                .idb_index
+                .get_all_keys_with_key_and_limit(&JsValue::UNDEFINED, limit),
+            (Some(key_range), None) => self.idb_index.get_all_keys_with_key(key_range.as_ref()),
+            (Some(key_range), Some(limit)) => self
+                .idb_index
+                .get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
+        }
+        .map_err(Error::IndexedDbRequestError)?;
 
         wait_request(request, Error::IndexedDbRequestError).await
     }

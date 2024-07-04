@@ -135,10 +135,10 @@ async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<Employee>> {
     assert!(employees.is_ok());
     let employees = employees.unwrap();
 
-    let employee = employees.get(&id.into()).await?;
-    let employee: Option<Employee> = serde_wasm_bindgen::from_value(employee).unwrap();
-
-    Ok(employee)
+    Ok(employees
+        .get(&id.into())
+        .await?
+        .map(|value| serde_wasm_bindgen::from_value::<Employee>(value).unwrap()))
 }
 
 async fn get_all_employees(rexie: &Rexie, direction: Option<Direction>) -> Result<Vec<Employee>> {
@@ -228,8 +228,8 @@ async fn get_invoice(rexie: &Rexie, id: usize, year: u16) -> Result<Option<Invoi
 
     let invoice = invoices
         .get(&Array::of2(&JsValue::from_f64(id as _), &JsValue::from_f64(year as _)).into())
-        .await?;
-    let invoice: Option<Invoice> = serde_wasm_bindgen::from_value(invoice).unwrap();
+        .await?
+        .map(|value| serde_wasm_bindgen::from_value(value).unwrap());
 
     Ok(invoice)
 }
