@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rexie = "0.4"
+//! rexie = "0.6"
 //! ```
 //!
 //! ## Example
@@ -37,7 +37,7 @@
 //!
 //!     // Check basic details of the database
 //!     assert_eq!(rexie.name(), "test");
-//!     assert_eq!(rexie.version(), 1.0);
+//!     assert_eq!(rexie.version(), Ok(1));
 //!     assert_eq!(rexie.store_names(), vec!["employees"]);
 //!
 //!     Ok(rexie)
@@ -88,7 +88,7 @@
 //!     let employees = transaction.store("employees")?;
 //!     
 //!     // Get the employee
-//!     let employee = employees.get(&id.into()).await?.unwrap();
+//!     let employee = employees.get(id.into()).await?.unwrap();
 //!
 //!     // Convert it to `serde_json::Value` from `JsValue`
 //!     let employee: Option<serde_json::Value> = serde_wasm_bindgen::from_value(employee).unwrap();
@@ -97,24 +97,22 @@
 //!     Ok(employee)
 //! }
 //! ```
-mod direction;
 mod error;
 mod index;
-mod key_path;
-mod key_range;
 mod object_store;
-mod request;
 mod rexie;
 mod rexie_builder;
 mod transaction;
 
+pub use idb::{
+    CursorDirection as Direction, KeyPath, KeyRange, TransactionMode, TransactionResult,
+};
+
 pub use self::{
-    direction::Direction,
     error::{Error, Result},
     index::Index,
-    key_range::KeyRange,
     object_store::ObjectStore,
     rexie::Rexie,
     rexie_builder::RexieBuilder,
-    transaction::{Store, StoreIndex, Transaction, TransactionMode},
+    transaction::{Store, StoreIndex, Transaction},
 };

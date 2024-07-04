@@ -1,92 +1,59 @@
-use wasm_bindgen::prelude::*;
-use web_sys::IdbObjectStore;
+use idb::ObjectStore;
+use wasm_bindgen::JsValue;
 
-use crate::{
-    request::{wait_cursor_request, wait_request},
-    Direction, Error, KeyRange, Result, StoreIndex,
-};
+use crate::{Direction, KeyPath, KeyRange, Result, StoreIndex};
 
 /// An object store.
 pub struct Store {
-    pub(crate) idb_store: IdbObjectStore,
+    pub(crate) object_store: ObjectStore,
 }
 
 impl Store {
-    /// Creates a new instance of `Store`.
-    pub(crate) fn new(idb_store: IdbObjectStore) -> Self {
-        Self { idb_store }
-    }
-
     /// Returns whether the store has auto increment enabled
     /// MDN Reference: [IDBObjectStore.autoIncrement](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/autoIncrement)
     pub fn auto_increment(&self) -> bool {
-        self.idb_store.auto_increment()
+        self.object_store.auto_increment()
     }
 
     /// Returns the name of the store
     /// MDN Reference: [IDBObjectStore.name](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/name)
     pub fn name(&self) -> String {
-        self.idb_store.name()
+        self.object_store.name()
     }
 
     /// Returns the key path of the store
     /// MDN Reference: [IDBObjectStore.keyPath](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/keyPath)
-    pub fn key_path(&self) -> Result<Option<String>> {
-        self.idb_store
-            .key_path()
-            .map(|js_value| js_value.as_string())
-            .map_err(Error::IndexedDbRequestError)
+    pub fn key_path(&self) -> Result<Option<KeyPath>> {
+        self.object_store.key_path().map_err(Into::into)
     }
 
     /// Returns all the index names of the store
     /// MDN Reference: [IDBObjectStore/indexNames](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/indexNames)
     pub fn index_names(&self) -> Vec<String> {
-        let list = self.idb_store.index_names();
-        let list_len = list.length();
-        let mut result = Vec::with_capacity(list_len as usize);
-
-        for index in 0..list_len {
-            if let Some(s) = list.get(index) {
-                result.push(s);
-            }
-        }
-
-        result
+        self.object_store.index_names()
     }
 
     /// Returns index of the store with given name
     /// MDN Reference: [IDBObjectStore/index](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/index)
     pub fn index(&self, name: &str) -> Result<StoreIndex> {
-        let idb_index = self.idb_store.index(name).map_err(Error::IndexOpenFailed)?;
-
-        Ok(StoreIndex::new(idb_index))
+        let index = self.object_store.index(name)?;
+        Ok(StoreIndex { index })
     }
 
     /// Gets a value from the store with given key
     /// MDN Reference: [IDBObjectStore/get](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/get)
-    pub async fn get(&self, key: &JsValue) -> Result<Option<JsValue>> {
-        let request = self
-            .idb_store
-            .get(key)
-            .map_err(Error::IndexedDbRequestError)?;
-
-        let response = wait_request(request, Error::IndexedDbRequestError).await?;
-        if response.is_undefined() || response.is_null() {
-            Ok(None)
-        } else {
-            Ok(Some(response))
-        }
+    pub async fn get(&self, key: JsValue) -> Result<Option<JsValue>> {
+        self.object_store.get(key)?.await.map_err(Into::into)
     }
 
     /// Checks if a given key exists within the store
     /// MDN Reference: [IDBObjectStore/getKey](https://developer.mozilla.org/en-US/docs/Web/API/IDBObjectStore/getKey)
-    pub async fn key_exists(&self, key: &JsValue) -> Result<bool> {
-        let request = self
-            .idb_store
-            .get_key(key)
-            .map_err(Error::IndexedDbRequestError)?;
-        let result = wait_request(request, Error::IndexedDbRequestError).await?;
-        Ok(result.as_bool().unwrap_or_default())
+    pub async fn key_exists(&self, key: JsValue) -> Result<bool> {
+        self.object_store
+            .get_key(key)?
+            .await
+            .map(|key| key.is_some())
+            .map_err(Into::into)
     }
 
     /// Retrieves record keys for all objects in the object store matching the specified
@@ -94,106 +61,116 @@ impl Store {
     /// MDN Reference: [IDBStore/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBStore/getAllKeys)
     pub async fn get_all_keys(
         &self,
-        key_range: Option<&KeyRange>,
+        key_range: Option<KeyRange>,
         limit: Option<u32>,
-    ) -> Result<JsValue> {
-        let request = match (key_range, limit) {
-            (None, None) => self.idb_store.get_all_keys(),
-            (None, Some(limit)) => self
-                .idb_store
-                .get_all_keys_with_key_and_limit(&JsValue::UNDEFINED, limit),
-            (Some(key_range), None) => self.idb_store.get_all_keys_with_key(key_range.as_ref()),
-            (Some(key_range), Some(limit)) => self
-                .idb_store
-                .get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
-
-        wait_request(request, Error::IndexedDbRequestError).await
+    ) -> Result<Vec<JsValue>> {
+        self.object_store
+            .get_all_keys(key_range.map(Into::into), limit)?
+            .await
+            .map_err(Into::into)
     }
 
-    /// Gets all key-value pairs from the store with given key range, limit, offset and direction
+    /// Gets all values from the store with given key range and limit
     pub async fn get_all(
         &self,
-        key_range: Option<&KeyRange>,
+        key_range: Option<KeyRange>,
+        limit: Option<u32>,
+    ) -> Result<Vec<JsValue>> {
+        self.object_store
+            .get_all(key_range.map(Into::into), limit)?
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Scans all key-value pairs from the store with given key range, limit, offset and direction
+    pub async fn scan(
+        &self,
+        key_range: Option<KeyRange>,
         limit: Option<u32>,
         offset: Option<u32>,
         direction: Option<Direction>,
     ) -> Result<Vec<(JsValue, JsValue)>> {
-        let request = match (key_range, direction) {
-            (Some(key_range), Some(direction)) => self
-                .idb_store
-                .open_cursor_with_range_and_direction(key_range.as_ref(), direction.into()),
-            (Some(key_range), None) => self.idb_store.open_cursor_with_range(key_range.as_ref()),
-            (None, Some(direction)) => self
-                .idb_store
-                .open_cursor_with_range_and_direction(&JsValue::null(), direction.into()),
-            _ => self.idb_store.open_cursor(),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
+        let cursor = self
+            .object_store
+            .open_cursor(key_range.map(Into::into), direction)?
+            .await?;
 
-        wait_cursor_request(request, limit, offset, Error::IndexedDbRequestError).await
+        match cursor {
+            None => Ok(Vec::new()),
+            Some(cursor) => {
+                let mut cursor = cursor.into_managed();
+
+                let mut result = Vec::new();
+
+                match limit {
+                    Some(limit) => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
+
+                        for _ in 0..limit {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                    None => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
+
+                        loop {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                }
+
+                Ok(result)
+            }
+        }
     }
 
     /// Adds a key value pair in the store. Note that the key can be `None` if store has auto increment enabled.
     pub async fn add(&self, value: &JsValue, key: Option<&JsValue>) -> Result<JsValue> {
-        let request = match key {
-            Some(key) => self.idb_store.add_with_key(value, key),
-            None => self.idb_store.add(value),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
-
-        wait_request(request, Error::IndexedDbRequestError).await
+        self.object_store.add(value, key)?.await.map_err(Into::into)
     }
 
     /// Puts (adds or updates) a key value pair in the store.
     pub async fn put(&self, value: &JsValue, key: Option<&JsValue>) -> Result<JsValue> {
-        let request = match key {
-            Some(key) => self.idb_store.put_with_key(value, key),
-            None => self.idb_store.put(value),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
-
-        wait_request(request, Error::IndexedDbRequestError).await
+        self.object_store.put(value, key)?.await.map_err(Into::into)
     }
 
     /// Deletes a key value pair from the store
-    pub async fn delete(&self, key: &JsValue) -> Result<()> {
-        let request = self
-            .idb_store
-            .delete(key)
-            .map_err(Error::IndexedDbRequestError)?;
-
-        wait_request(request, Error::IndexedDbRequestError).await?;
-
-        Ok(())
+    pub async fn delete(&self, key: JsValue) -> Result<()> {
+        self.object_store.delete(key)?.await.map_err(Into::into)
     }
 
     /// Counts the number of key value pairs in the store
-    pub async fn count(&self, key_range: Option<&KeyRange>) -> Result<u32> {
-        let request = match key_range {
-            Some(key_range) => self.idb_store.count_with_key(key_range.as_ref()),
-            None => self.idb_store.count(),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
-
-        let result = wait_request(request, Error::IndexedDbRequestError).await?;
-
-        result
-            .as_f64()
-            .and_then(num_traits::cast)
-            .ok_or(Error::UnexpectedJsType)
+    pub async fn count(&self, key_range: Option<KeyRange>) -> Result<u32> {
+        self.object_store
+            .count(key_range.map(Into::into))?
+            .await
+            .map_err(Into::into)
     }
 
     /// Deletes all key value pairs from the store
     pub async fn clear(&self) -> Result<()> {
-        let request = self
-            .idb_store
-            .clear()
-            .map_err(Error::IndexedDbRequestError)?;
-
-        wait_request(request, Error::IndexedDbRequestError)
-            .await
-            .map(|_| ())
+        self.object_store.clear()?.await.map_err(Into::into)
     }
 }

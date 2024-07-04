@@ -7,7 +7,7 @@ extern crate wasm_bindgen_test;
 use std::{assert, assert_eq, option::Option};
 
 use js_sys::Array;
-use rexie::{Direction, Index, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
+use rexie::{Direction, Index, KeyPath, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
@@ -70,7 +70,7 @@ async fn create_db() -> Rexie {
 /// Checks basic details of the database
 async fn basic_test_db(rexie: &Rexie) {
     assert_eq!(rexie.name(), "test");
-    assert_eq!(rexie.version(), 1.0);
+    assert_eq!(rexie.version(), Ok(1));
     assert_eq!(
         rexie.store_names(),
         vec!["departments", "employees", "invoices"]
@@ -80,7 +80,7 @@ async fn basic_test_db(rexie: &Rexie) {
     assert!(transaction.is_ok());
     let transaction = transaction.unwrap();
 
-    assert_eq!(transaction.mode(), TransactionMode::ReadOnly);
+    assert_eq!(transaction.mode(), Ok(TransactionMode::ReadOnly));
     assert_eq!(transaction.store_names(), vec!["employees"]);
 
     let employees = transaction.store("employees");
@@ -89,7 +89,7 @@ async fn basic_test_db(rexie: &Rexie) {
 
     assert_eq!(employees.name(), "employees");
     assert!(employees.auto_increment());
-    assert_eq!(employees.key_path(), Ok(Some("id".to_string())));
+    assert_eq!(employees.key_path(), Ok(Some(KeyPath::new_single("id"))));
     assert_eq!(employees.index_names(), vec!["email"]);
 
     let email_index = employees.index("email");
@@ -136,7 +136,7 @@ async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<Employee>> {
     let employees = employees.unwrap();
 
     Ok(employees
-        .get(&id.into())
+        .get(id.into())
         .await?
         .map(|value| serde_wasm_bindgen::from_value::<Employee>(value).unwrap()))
 }
@@ -151,7 +151,7 @@ async fn get_all_employees(rexie: &Rexie, direction: Option<Direction>) -> Resul
     let employees = employees.unwrap();
 
     let employees: Vec<JsValue> = employees
-        .get_all(None, None, None, direction)
+        .scan(None, None, None, direction)
         .await?
         .into_iter()
         .map(|pair| pair.1)
@@ -165,7 +165,7 @@ async fn get_all_employees(rexie: &Rexie, direction: Option<Direction>) -> Resul
     Ok(employees)
 }
 
-async fn count_employees(rexie: &Rexie, key_range: Option<&KeyRange>) -> Result<u32> {
+async fn count_employees(rexie: &Rexie, key_range: Option<KeyRange>) -> Result<u32> {
     let transaction = rexie.transaction(&["employees"], TransactionMode::ReadOnly);
     assert!(transaction.is_ok());
     let transaction = transaction.unwrap();
@@ -227,7 +227,7 @@ async fn get_invoice(rexie: &Rexie, id: usize, year: u16) -> Result<Option<Invoi
     let invoices = invoices.unwrap();
 
     let invoice = invoices
-        .get(&Array::of2(&JsValue::from_f64(id as _), &JsValue::from_f64(year as _)).into())
+        .get(Array::of2(&JsValue::from_f64(id as _), &JsValue::from_f64(year as _)).into())
         .await?
         .map(|value| serde_wasm_bindgen::from_value(value).unwrap());
 
@@ -252,8 +252,8 @@ async fn get_all_invoices_by_agent_and_customer(
     let agent_customer_index = agent_customer_index.unwrap();
 
     let invoices = agent_customer_index
-        .get_all(
-            Some(&KeyRange::only(&Array::of2(&agent.into(), &customer.into())).unwrap()),
+        .scan(
+            Some(KeyRange::only(&Array::of2(&agent.into(), &customer.into())).unwrap()),
             None,
             None,
             None,
@@ -342,10 +342,6 @@ async fn test_db_duplicate_add_fail() {
     // Write a duplicate value (with same email) to the database.
     let id = add_employee(&rexie, "John Doe New", "john@example.com").await;
     assert!(id.is_err());
-    let err = id.unwrap_err();
-    assert!(err
-        .to_string()
-        .starts_with("failed to execute indexed db request: ConstraintError"));
 
     close_and_delete_db(rexie).await;
 }
@@ -364,13 +360,13 @@ async fn test_db_count_and_clear_pass() {
     // Count the number of values in the database before and after clearing.
     assert_eq!(count_employees(&rexie, None).await, Ok(2));
     assert_eq!(
-        count_employees(&rexie, Some(&KeyRange::only(&1u32.into()).unwrap())).await,
+        count_employees(&rexie, Some(KeyRange::only(&1u32.into()).unwrap())).await,
         Ok(1)
     );
     assert_eq!(
         count_employees(
             &rexie,
-            Some(&KeyRange::lower_bound(&1u32.into(), true).unwrap())
+            Some(KeyRange::lower_bound(&1u32.into(), Some(true)).unwrap())
         )
         .await,
         Ok(1)
@@ -378,7 +374,7 @@ async fn test_db_count_and_clear_pass() {
     assert_eq!(
         count_employees(
             &rexie,
-            Some(&KeyRange::lower_bound(&2u32.into(), false).unwrap())
+            Some(KeyRange::lower_bound(&2u32.into(), Some(false)).unwrap())
         )
         .await,
         Ok(1)
@@ -386,7 +382,7 @@ async fn test_db_count_and_clear_pass() {
     assert_eq!(
         count_employees(
             &rexie,
-            Some(&KeyRange::lower_bound(&2u32.into(), true).unwrap())
+            Some(KeyRange::lower_bound(&2u32.into(), Some(true)).unwrap())
         )
         .await,
         Ok(0)

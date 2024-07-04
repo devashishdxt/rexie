@@ -1,110 +1,128 @@
+use idb::Index;
 use wasm_bindgen::JsValue;
-use web_sys::IdbIndex;
 
-use crate::{
-    request::{wait_cursor_request, wait_request},
-    Direction, Error, KeyRange, Result,
-};
+use crate::{Direction, KeyRange, Result};
 
 /// Index of an object store.
 pub struct StoreIndex {
-    pub(crate) idb_index: IdbIndex,
+    pub(crate) index: Index,
 }
 
 impl StoreIndex {
-    /// Creates a new instance of `StoreIndex`.
-    pub(crate) fn new(idb_index: IdbIndex) -> Self {
-        Self { idb_index }
-    }
-
     /// Returns name of the index
     pub fn name(&self) -> String {
-        self.idb_index.name()
+        self.index.name()
     }
 
     /// Returns weather the index has unique enabled
     pub fn unique(&self) -> bool {
-        self.idb_index.unique()
+        self.index.unique()
     }
 
     /// Returns weather the index has multi entry enabled
     pub fn multi_entry(&self) -> bool {
-        self.idb_index.multi_entry()
+        self.index.multi_entry()
     }
 
     /// Gets a value from the store with given key
-    pub async fn get(&self, key: &JsValue) -> Result<Option<JsValue>> {
-        let request = self
-            .idb_index
-            .get(key)
-            .map_err(Error::IndexedDbRequestError)?;
-
-        let response = wait_request(request, Error::IndexedDbRequestError).await?;
-        if response.is_undefined() || response.is_null() {
-            Ok(None)
-        } else {
-            Ok(Some(response))
-        }
+    pub async fn get(&self, key: JsValue) -> Result<Option<JsValue>> {
+        self.index.get(key)?.await.map_err(Into::into)
     }
 
-    /// retrieves the primary keys of all objects inside the index
+    /// Retrieves the keys of all objects inside the index
     /// See: [MDN:IDBIndex/getAllKeys](https://developer.mozilla.org/en-US/docs/Web/API/IDBIndex/getAllKeys)
     pub async fn get_all_keys(
         &self,
-        key_range: Option<&KeyRange>,
+        key_range: Option<KeyRange>,
         limit: Option<u32>,
-    ) -> Result<JsValue> {
-        let request = match (key_range, limit) {
-            (None, None) => self.idb_index.get_all_keys(),
-            (None, Some(limit)) => self
-                .idb_index
-                .get_all_keys_with_key_and_limit(&JsValue::UNDEFINED, limit),
-            (Some(key_range), None) => self.idb_index.get_all_keys_with_key(key_range.as_ref()),
-            (Some(key_range), Some(limit)) => self
-                .idb_index
-                .get_all_keys_with_key_and_limit(key_range.as_ref(), limit),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
-
-        wait_request(request, Error::IndexedDbRequestError).await
+    ) -> Result<Vec<JsValue>> {
+        self.index
+            .get_all_keys(key_range.map(Into::into), limit)?
+            .await
+            .map_err(Into::into)
     }
 
-    /// Gets all key-value pairs from the store with given key range, limit, offset and direction
+    /// Gets all values from the store with given key range and limit
     pub async fn get_all(
         &self,
-        key_range: Option<&KeyRange>,
+        key_range: Option<KeyRange>,
+        limit: Option<u32>,
+    ) -> Result<Vec<JsValue>> {
+        self.index
+            .get_all(key_range.map(Into::into), limit)?
+            .await
+            .map_err(Into::into)
+    }
+
+    /// Scans all key-value pairs from the store with given key range, limit, offset and direction
+    pub async fn scan(
+        &self,
+        key_range: Option<KeyRange>,
         limit: Option<u32>,
         offset: Option<u32>,
         direction: Option<Direction>,
     ) -> Result<Vec<(JsValue, JsValue)>> {
-        let request = match (key_range, direction) {
-            (Some(key_range), Some(direction)) => self
-                .idb_index
-                .open_cursor_with_range_and_direction(key_range.as_ref(), direction.into()),
-            (Some(key_range), None) => self.idb_index.open_cursor_with_range(key_range.as_ref()),
-            (None, Some(direction)) => self
-                .idb_index
-                .open_cursor_with_range_and_direction(&JsValue::null(), direction.into()),
-            _ => self.idb_index.open_cursor(),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
+        let cursor = self
+            .index
+            .open_cursor(key_range.map(Into::into), direction)?
+            .await?;
 
-        wait_cursor_request(request, limit, offset, Error::IndexedDbRequestError).await
+        match cursor {
+            None => Ok(Vec::new()),
+            Some(cursor) => {
+                let mut cursor = cursor.into_managed();
+
+                let mut result = Vec::new();
+
+                match limit {
+                    Some(limit) => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
+
+                        for _ in 0..limit {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                    None => {
+                        if let Some(offset) = offset {
+                            cursor.advance(offset).await?;
+                        }
+
+                        loop {
+                            let key = cursor.key()?;
+                            let value = cursor.value()?;
+
+                            match (key, value) {
+                                (Some(key), Some(value)) => {
+                                    result.push((key, value));
+                                    cursor.next(None).await?;
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                }
+
+                Ok(result)
+            }
+        }
     }
 
     /// Counts the number of key value pairs in the store
-    pub async fn count(&self, key_range: Option<&KeyRange>) -> Result<u32> {
-        let request = match key_range {
-            Some(key_range) => self.idb_index.count_with_key(key_range.as_ref()),
-            None => self.idb_index.count(),
-        }
-        .map_err(Error::IndexedDbRequestError)?;
-
-        let result = wait_request(request, Error::IndexedDbRequestError).await?;
-
-        result
-            .as_f64()
-            .and_then(num_traits::cast)
-            .ok_or(Error::UnexpectedJsType)
+    pub async fn count(&self, key_range: Option<KeyRange>) -> Result<u32> {
+        self.index
+            .count(key_range.map(Into::into))?
+            .await
+            .map_err(Into::into)
     }
 }
