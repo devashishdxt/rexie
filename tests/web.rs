@@ -4,7 +4,7 @@
 
 extern crate wasm_bindgen_test;
 
-use std::{assert, assert_eq, option::Option};
+use std::{assert, assert_eq, option::Option, vec};
 
 use js_sys::Array;
 use rexie::{Direction, Index, KeyPath, KeyRange, ObjectStore, Result, Rexie, TransactionMode};
@@ -124,6 +124,27 @@ async fn add_employee(rexie: &Rexie, name: &str, email: &str) -> Result<u32> {
 
     transaction.commit().await?;
     Ok(num_traits::cast(employee_id.as_f64().unwrap()).unwrap())
+}
+
+async fn add_all_employees(rexie: &Rexie, iter: impl Iterator<Item = (&str, &str)>) -> Result<()> {
+    let transaction = rexie.transaction(&["employees"], TransactionMode::ReadWrite);
+    assert!(transaction.is_ok());
+    let transaction = transaction.unwrap();
+
+    let employees = transaction.store("employees");
+    assert!(employees.is_ok());
+    let employees = employees.unwrap();
+
+    let requests = iter.map(|(name, email)| {
+        let request = EmployeeRequest { name, email };
+        let request = serde_wasm_bindgen::to_value(&request).unwrap();
+        (request, None)
+    });
+
+    employees.add_all(requests).await?;
+
+    transaction.commit().await?;
+    Ok(())
 }
 
 async fn get_employee(rexie: &Rexie, id: u32) -> Result<Option<Employee>> {
@@ -476,6 +497,30 @@ async fn check_transaction_abort() {
     let employees = employees.unwrap();
 
     assert_eq!(employees.len(), 1);
+
+    close_and_delete_db(rexie).await;
+}
+
+#[wasm_bindgen_test]
+async fn test_add_all_pass() {
+    let rexie = create_db().await;
+
+    // Write values to the database.
+    add_all_employees(
+        &rexie,
+        vec![
+            ("John Doe", "john@example.com"),
+            ("Scooby Doo", "scooby@example.com"),
+        ]
+        .into_iter(),
+    )
+    .await
+    .unwrap();
+
+    let employees = get_all_employees(&rexie, None).await;
+    assert!(employees.is_ok());
+    let employees = employees.unwrap();
+    assert_eq!(employees.len(), 2);
 
     close_and_delete_db(rexie).await;
 }

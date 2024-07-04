@@ -151,9 +151,48 @@ impl Store {
         self.object_store.add(value, key)?.await.map_err(Into::into)
     }
 
-    /// Puts (adds or updates) a key value pair in the store.
+    /// Adds all key value pairs (`(value, Option<key>)`) in the store. Note that the keys can be `None` if store has
+    /// auto increment enabled.
+    pub async fn add_all(
+        &self,
+        iter: impl Iterator<Item = (JsValue, Option<JsValue>)>,
+    ) -> Result<()> {
+        let mut request = None;
+
+        for (value, key) in iter {
+            request = Some(self.object_store.add(value.as_ref(), key.as_ref())?);
+        }
+
+        if let Some(request) = request {
+            request.await.map(|_| ()).map_err(Into::into)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Puts (adds or updates) a key value pair in the store. Note that the keys can be `None` if store has auto
+    /// increment enabled.
     pub async fn put(&self, value: &JsValue, key: Option<&JsValue>) -> Result<JsValue> {
         self.object_store.put(value, key)?.await.map_err(Into::into)
+    }
+
+    /// Puts (adds or updates) a key value pairs (`(value, Option<key>)`) in the store. Note that the keys can be `None`
+    /// if store has auto increment enabled.
+    pub async fn put_all(
+        &self,
+        iter: impl Iterator<Item = (JsValue, Option<JsValue>)>,
+    ) -> Result<()> {
+        let mut request = None;
+
+        for (value, key) in iter {
+            request = Some(self.object_store.put(value.as_ref(), key.as_ref())?);
+        }
+
+        if let Some(request) = request {
+            request.await.map(|_| ()).map_err(Into::into)
+        } else {
+            Ok(())
+        }
     }
 
     /// Deletes a key value pair from the store
