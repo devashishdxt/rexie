@@ -44,7 +44,8 @@ impl Rexie {
         self.database.close();
     }
 
-    /// Deletes a database
+    /// Deletes a database. Note that the future returned by this function doesn't reach completion until the database
+    /// is closed across all tabs in the browser.
     pub async fn delete(name: &str) -> Result<()> {
         Self::builder(name).delete().await
     }
