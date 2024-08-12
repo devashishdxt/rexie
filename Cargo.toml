@@ -23,17 +23,17 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-idb = { version = "0.6.2", features = ["builder"] }
-thiserror = "1.0.61"
-wasm-bindgen = "0.2.92"
+idb = { version = "0.6", features = ["builder"] }
+thiserror = "1"
+wasm-bindgen = "0.2"
 
 [dev-dependencies]
-serde = { version = "1.0.164", features = ["derive"] }
-serde_json = "1.0.97"
-serde-wasm-bindgen = "0.5.0"
-wasm-bindgen-test = "0.3.37"
-js-sys = "0.3.69"
-num-traits = { version = "0.2.19", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde-wasm-bindgen = "0.6"
+wasm-bindgen-test = "0.3"
+js-sys = "0.3"
+num-traits = { version = "0.2", default-features = false }
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.

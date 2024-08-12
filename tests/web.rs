@@ -46,9 +46,12 @@ struct InvoiceRequest<'a> {
 /// Creates a database
 async fn create_db() -> Rexie {
     assert!(Rexie::delete("test").await.is_ok());
+    create_db_with_version(1).await
+}
 
+async fn create_db_with_version(version: u32) -> Rexie {
     let rexie = Rexie::builder("test")
-        .version(1)
+        .version(version)
         .add_object_store(
             ObjectStore::new("employees")
                 .key_path("id")
@@ -69,8 +72,12 @@ async fn create_db() -> Rexie {
 
 /// Checks basic details of the database
 async fn basic_test_db(rexie: &Rexie) {
+    basic_test_db_with_version(rexie, 1).await;
+}
+
+async fn basic_test_db_with_version(rexie: &Rexie, version: u32) {
     assert_eq!(rexie.name(), "test");
-    assert_eq!(rexie.version(), Ok(1));
+    assert_eq!(rexie.version(), Ok(version));
     assert_eq!(
         rexie.store_names(),
         vec!["departments", "employees", "invoices"]
@@ -521,6 +528,18 @@ async fn test_add_all_pass() {
     assert!(employees.is_ok());
     let employees = employees.unwrap();
     assert_eq!(employees.len(), 2);
+
+    close_and_delete_db(rexie).await;
+}
+
+#[wasm_bindgen_test]
+async fn test_db_reopen() {
+    let rexie = create_db().await;
+    basic_test_db(&rexie).await;
+    rexie.close();
+
+    let rexie = create_db_with_version(2).await;
+    basic_test_db_with_version(&rexie, 2).await;
 
     close_and_delete_db(rexie).await;
 }
