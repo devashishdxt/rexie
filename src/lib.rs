@@ -99,18 +99,18 @@
 //! ```
 mod error;
 mod index;
+mod key_range;
 mod object_store;
 mod rexie;
 mod rexie_builder;
 mod transaction;
 
-pub use idb::{
-    CursorDirection as Direction, KeyPath, KeyRange, TransactionMode, TransactionResult,
-};
+pub use idb::{CursorDirection as Direction, KeyPath, TransactionMode, TransactionResult};
 
 pub use self::{
     error::{Error, Result},
     index::Index,
+    key_range::KeyRange,
     object_store::ObjectStore,
     rexie::Rexie,
     rexie_builder::RexieBuilder,
