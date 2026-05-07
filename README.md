@@ -2,6 +2,10 @@
 
 Rexie is an easy-to-use, futures based wrapper around IndexedDB that compiles to webassembly.
 
+> I don’t plan to add new features to this crate, but I’ll continue to fix bugs as they come up.
+>
+> For new projects, I recommend considering `idb`, which provides a similar API and is the crate I plan to maintain more actively going forward.
+
 ## Usage
 
 To use Rexie, you need to add the following to your `Cargo.toml`:
