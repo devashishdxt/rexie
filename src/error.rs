@@ -8,7 +8,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 pub enum Error {
     /// Indexed DB error
-    #[error("idb error")]
+    #[error("idb error: {0}")]
     IdbError(#[from] idb::Error),
     /// Couldn't abort a transaction
     #[error("couldn't abort a transaction")]
